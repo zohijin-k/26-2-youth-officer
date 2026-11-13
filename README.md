@@ -1,91 +1,68 @@
-# 전북 청년정책 신청서류 자동 검토 시스템
+# 청년 취업지원패키지 신청자 전용
 
-두배적금과 청년 취업지원패키지 신청 서류를 읽고 공고문 기준을 확인해, 담당자가 검토할 내용과 판정 근거를 정리하는 데모입니다.
+전북청년 취업지원패키지 신청자가 본인인증, 서식 작성·서명, 지원 항목 선택, 서류 업로드, 확인·제출과 신청 현황 조회를 진행하는 저장소입니다. 앱을 열면 사업 선택 없이 본인인증 단계로 이동합니다.
 
-## 해결하려는 문제
+앞으로 담당자가 제공한 공고문·서식 PDF에 맞춰 신청 페이지가 구성되는 범용 신청 서비스로 확장할 예정입니다.
 
-도청·시군 담당자는 신청자가 낸 여러 서류를 열어 자격과 제출 상태를 하나씩 확인해야 합니다. 신청자도 서류가 잘못되었는지 접수 뒤에야 알 수 있습니다. 이 시스템은 업로드할 때 미비 가능성을 알려 담당자의 확인 부담과 신청자의 재제출 대기를 줄이는 것을 목표로 합니다.
+## 관련 저장소
 
-## 핵심 기능
+| 저장소 | 역할 |
+| --- | --- |
+| [26-2-capstone](https://github.com/zohijin-k/26-2-capstone) | 전체 프로젝트 안내 |
+| [26-2-savings-applicant](https://github.com/zohijin-k/26-2-savings-applicant) | 두배적금 신청자 |
+| [26-2-savings-officer](https://github.com/zohijin-k/26-2-savings-officer) | 두배적금 담당자 |
+| [26-2-youth-officer](https://github.com/zohijin-k/26-2-youth-officer) | 청년 취업지원패키지 담당자 |
 
-1. 서류 본문을 읽어 업로드 칸에 맞는 서류인지 확인합니다. 파일 이름은 판정에 쓰지 않습니다.
-2. OCR(서류 사진이나 PDF에서 글자를 읽는 기술)로 이름·날짜·금액 등 필요한 항목을 읽습니다.
-3. 공고문에 적힌 날짜와 자격 규칙으로 서류와 신청 내용을 확인합니다.
-4. 불확실한 내용은 자동으로 부적합 처리하지 않고 담당자가 확인하도록 표시합니다.
-5. 담당자는 원본 서류와 판독 결과·판정 근거를 한 화면에서 확인합니다.
+## 실행 환경
 
-## 한눈에 보는 흐름
+이번에 검증한 환경은 **WSL2 (Ubuntu 24.04.5 LTS), Python 3.12.3, Node.js 22.23.4, npm 10.9.9**입니다. 아래 명령은 Ubuntu 터미널에서 실행합니다. 저장소는 WSL 홈 디렉터리 아래에 둡니다.
 
-**신청자 → 서류 업로드 → 자동 판독·규칙 판정 → 담당자 확인 → 결과 안내**
+- Windows 네이티브(PowerShell): 이번에 검증하지 않음.
+- macOS: 이번에 검증하지 않음.
 
-자동 판독은 판단을 돕습니다. 자격과 점수는 공고문 기준에 따른 규칙으로 계산하며, 불확실한 내용은 사람이 확인합니다.
+## 설치와 모델 받기
 
-## 빠른 시작
-
-필요 환경은 Python 3.12 이상, Node.js 20 이상입니다. 저장소 루트에서 설치합니다.
+처음 받는 경우 WSL 홈 디렉터리에서 실행합니다. 이미 받은 저장소가 있으면 해당 디렉터리로 이동합니다.
 
 ```bash
+cd ~
+gh repo clone zohijin-k/26-2-youth-applicant
+cd 26-2-youth-applicant
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r demo/backend/requirements.txt
-python -m pip install -r engine_v2/requirements.txt
-python engine_v2/tools/fetch_own_models.py
-cd demo/frontend && npm install && cd ../..
-python -m demo.fixtures.make_samples
+python -m pip install -r demo/backend/requirements.txt -r engine_v2/requirements.txt
+python -m engine_v2.tools.fetch_own_models
 ```
 
-터미널 두 개에서 실행한 뒤 <http://localhost:5173>을 엽니다.
+모델 다운로드 도구는 검출 모델·한국어 인식 모델·사전의 SHA-256을 검증합니다. 로컬 OCR은 own 모델을 사용하며, 내려받은 모델 파일은 Git에 포함하지 않습니다. WSL2에서는 macOS 전용 Apple Vision 패키지(ocrmac·pyobjc)를 설치하지 않습니다.
+
+프런트엔드 의존성은 잠금 파일에 맞춰 설치합니다.
 
 ```bash
+cd demo/frontend
+npm ci
+```
+
+## 백엔드와 프런트엔드 실행
+
+터미널 두 개를 사용합니다. 첫 번째 터미널은 저장소 루트에서 가상환경을 활성화한 뒤 실행합니다.
+
+```bash
+source .venv/bin/activate
 uvicorn demo.backend.main:app --reload --port 8000
 ```
 
+두 번째 터미널에서는 프런트엔드를 실행합니다.
+
 ```bash
-cd demo/frontend && npm run dev
+cd demo/frontend
+npm run dev
 ```
 
-데모 로컬 OCR은 macOS를 포함한 모든 환경에서 own이 기본입니다. 모델 파일이 기본 경로에 없을 때는 easyocr로 대체하므로, own을 사용하려면 위 명령으로 모델을 설치해야 합니다. 시연용 문서는 가상 데이터로 만듭니다. 모델은 별도 내려받기이며 저장소에 포함되지 않습니다.
+브라우저에서 <http://localhost:5173>을 엽니다. Vite가 `/api` 요청을 백엔드의 8000 포트로 전달합니다. 백엔드 API 문서는 <http://localhost:8000/docs>에서 확인할 수 있습니다.
 
-이번 제출에서는 전북AI를 사용하지 않습니다(연동 코드는 있으나 이번 제출에서는 사용하지 않음). 판독 순서는 시연 고정 응답 → 로컬 OCR → PDF 텍스트입니다. JBAI_* 설정은 비워 둔 채 실행합니다.
+## 개발 시 데이터와 라이선스
 
-### 서류 업로드만 시험할 때 (개발용)
+개발·시험에는 합성 데이터만 사용합니다. 업로드 파일·로컬 DB·내려받은 모델은 커밋하지 않습니다. 외부 OCR 서비스는 이번 로컬 실행에 필요하지 않으며 JBAI_* 설정은 비워 둡니다.
 
-1단계 본인인증을 마친 신청의 2단계(서식·지원 항목·동의·서명)를 가짜 값으로 채워, 서식 작성 없이 서류 업로드로 넘어갈 수 있습니다. 데모 DB에서만 동작합니다.
-
-1. 화면에서 1단계 본인인증을 마칩니다.
-2. 저장소 루트에서 실행합니다.
-   ```bash
-   PYTHONPATH=. python -B -m demo.backend.tools.seed_application
-   ```
-3. **1단계를 한 같은 탭** 주소창에 출력된 `/apply/upload` 주소를 입력합니다. 새 탭에서는 열리지 않습니다.
-4. 근로유형을 고르고 서류를 올립니다.
-5. 시험이 끝나면 정리합니다.
-   ```bash
-   PYTHONPATH=. python -B -m demo.backend.tools.seed_application --clean
-   ```
-
-시드한 신청은 2단계를 화면에서 다시 저장하지 마세요. 정리 표시가 지워져 `--clean`이 그 신청을 놓칩니다. 옵션과 자세한 동작은 [데모 안내](demo/README.md)를 참고하세요.
-
-## 현재 상태와 한계
-
-두 사업의 신청·서류 검토 데모가 있습니다. own은 데모 로컬 OCR의 기본 엔진이며, 정부24 자격득실확인서와 취업지원 서류의 사전 검사를 보강했습니다. 분류 모델은 실험 중이며 데모 판정에는 연결되지 않았습니다. 문서가 90도 또는 180도 돌아간 경우 자동 보정은 없습니다. own 평가는 ±2도 이내 기울임을 다룹니다. 알림톡 연동은 제안입니다.
-
-## 문서 안내
-
-| 읽는 분 | 문서 | 내용 |
-|---|---|---|
-| 신청자·담당자 | [사용 설명서](docs/USER_GUIDE.md) | 화면 이용, 서류 준비, 판정과 자주 묻는 질문 |
-| 수요기관·팀·심사위원 | [기획·계획서](docs/PROJECT_PLAN.md) | 배경, 요구 대응, 진행 상태, 일정과 위험 |
-| 개발 팀원 | [개발 안내](docs/DEVELOPMENT.md) | 브랜치·환경·구조·원칙·실행 및 확인 방법 |
-| 제3자 자료 | [제3자 고지](THIRD_PARTY_NOTICES.md) | 모델·글꼴·패키지 출처와 라이선스 정보 |
-| 보관 문서 | [옛 기록](docs/archive/) | 현재와 다를 수 있는 이전 기획·안내 자료 |
-| 데모 안내 | [demo/README.md](demo/README.md) | 데모 설치와 화면 |
-| 엔진 안내 | [engine_v2/README.md](engine_v2/README.md) | OCR·추출·분류 도구 |
-
-제3자 자료의 출처와 라이선스 정보는 [제3자 고지](THIRD_PARTY_NOTICES.md)를, own의 설치·판독 정보는 [자체 OCR 안내](engine_v2/docs/own-ocr.md)를 참고하세요.
-
-자체 OCR의 제작 과정·평가·한계는 [제작 과정 기록](engine_v2/docs/own-ocr-history.md)을 참고하세요.
-
-## 실행 화면과 데모
-
-데모 화면은 PC 사용을 기준으로 합니다. 시연 순서와 화면 설명은 [시연 대본](demo/docs/demo-script.md)에 있습니다. 데모 데이터 초기화 및 자세한 환경 설정은 [데모 안내](demo/README.md)를 참고하세요.
+모델·글꼴·패키지의 출처와 라이선스는 [제3자 고지](THIRD_PARTY_NOTICES.md), own 모델 정보는 [own OCR 안내](engine_v2/docs/own-ocr.md)를 참고하세요.

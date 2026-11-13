@@ -1,5 +1,3 @@
-export type Mode = 'applicant' | 'officer'
-
 const NAVIGATION_PARAMS = [
   'mode', 'application', 'stage', 'previous', 'from',
   'o_role', 'o_region', 'o_town', 'o_program', 'o_status', 'o_ai_status',
@@ -13,16 +11,6 @@ export function currentParams(): URLSearchParams {
   return new URLSearchParams(window.location.search)
 }
 
-export function currentMode(): Mode {
-  if (window.location.pathname.startsWith('/officer')) return 'officer'
-  if (window.location.pathname.startsWith('/apply')) return 'applicant'
-  return currentParams().get('mode') === 'officer' ? 'officer' : 'applicant'
-}
-
-export function currentUrl(): string {
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`
-}
-
 export function routeUrl(path: string, params: Record<string, string | null> = {}, replace = false): void {
   const url = new URL(window.location.href)
   url.pathname = path
@@ -33,8 +21,4 @@ export function routeUrl(path: string, params: Record<string, string | null> = {
   if (url.href === window.location.href) return
   const method = replace ? 'replaceState' : 'pushState'
   window.history[method](null, '', `${url.pathname}${url.search}${url.hash}`)
-}
-
-export function goToHome(): void {
-  routeUrl('/')
 }

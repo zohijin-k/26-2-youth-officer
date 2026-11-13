@@ -19,14 +19,12 @@ import {
   type FormExport,
   type OfficerDocument,
   type ReviewDetailData,
-  type ScoreItemRow,
 } from '../../api.ts'
 import StatusBadge from '../../components/StatusBadge.tsx'
 import { Skeleton, SkeletonBlock, SkeletonLine } from '../../components/Skeleton.tsx'
 import useDelayedFlag from '../../hooks/useDelayedFlag.ts'
 import DocumentViewer from './DocumentViewer.tsx'
 import { dotClass } from './format.ts'
-import ScoreSheet6 from './ScoreSheet6.tsx'
 
 interface Props {
   applicationId: number
@@ -79,7 +77,6 @@ interface Focus {
   documentId: number
   bbox: BBox | null
   label: string
-  scoreKey: string | null
 }
 
 /**
@@ -111,7 +108,7 @@ export default function ReviewDetail({
   const [focus, setFocus] = useState<Focus | null>(null)
   const [memo, setMemo] = useState('')
   const [saving, setSaving] = useState(false)
-  const showSkeleton = useDelayedFlag((!detail || detail.documents.length === 0) && !error)
+  const showSkeleton = useDelayedFlag(!detail && !error)
 
   const load = () => {
     fetchReviewDetail(applicationId, role)
@@ -135,8 +132,8 @@ export default function ReviewDetail({
     )
   }, [detail, activeDocId])
 
-  if (error) return <p className="officer__error">{error}</p>
-  if (!detail || !activeDoc) return showSkeleton ? (
+  if (error) return <div><button type="button" className="review__back" onClick={onBack}>← 접수 목록</button><p className="officer__error" role="alert">{error}</p></div>
+  if (!detail) return showSkeleton ? (
     <Skeleton className="review__skeleton">
       <div className="review__head review__skeleton-header">
         <button type="button" className="review__back" disabled aria-disabled="true">← 접수 목록</button>
@@ -144,7 +141,7 @@ export default function ReviewDetail({
       </div>
       <div className="review__skeleton-split">
         <div className="review__left review__skeleton-left"><nav className="review__tabs review__skeleton-tabs">{Array.from({ length: 5 }, (_, i) => <button key={i} type="button" className="review__tab" disabled aria-disabled="true"><SkeletonLine width="68%" /></button>)}</nav><SkeletonBlock className="review__skeleton-page" /></div>
-        <div className="review__right review__skeleton-right">{['최종 판정', '심사표 (서식6)', '자격요건 체크리스트', '제외대상 조회 결과', '판독 결과'].map((title, index) => <section className="panel" key={title}><h3 className="panel__title">{title}</h3><div className="panel__body review__skeleton-panel">{Array.from({ length: index === 1 ? 6 : index === 4 ? 5 : 3 }, (_, i) => <SkeletonLine key={i} width={i % 3 ? '82%' : '96%'} />)}</div></section>)}</div>
+        <div className="review__right review__skeleton-right">{['최종 판정', '지원 항목별 지급 내역', '자격요건 체크리스트', '제외대상 조회 결과', '판독 결과'].map((title, index) => <section className="panel" key={title}><h3 className="panel__title">{title}</h3><div className="panel__body review__skeleton-panel">{Array.from({ length: index === 1 ? 6 : index === 4 ? 5 : 3 }, (_, i) => <SkeletonLine key={i} width={i % 3 ? '82%' : '96%'} />)}</div></section>)}</div>
       </div>
     </Skeleton>
   ) : null
@@ -153,24 +150,12 @@ export default function ReviewDetail({
   const viewingForm = formIndex >= 0 ? detail.forms[formIndex] : null
   const viewing = viewingForm ? asViewerDoc(viewingForm, formIndex) : activeDoc
 
-  /** 심사표 항목 → 좌측 원본의 해당 위치. */
-  const focusScoreItem = (item: ScoreItemRow) => {
-    if (!item.source_document_id) return
-    setActiveDocId(item.source_document_id)
-    setFocus({
-      documentId: item.source_document_id,
-      bbox: item.bbox,
-      label: `${item.label} ${item.score}점`,
-      scoreKey: item.key,
-    })
-  }
-
   /** 판독 필드 → 좌측 원본의 해당 위치. */
   const focusField = (doc: OfficerDocument, field: string) => {
     const bbox = doc.bboxes[field]
     if (!bbox) return
     setActiveDocId(doc.document_id)
-    setFocus({ documentId: doc.document_id, bbox, label: field, scoreKey: null })
+    setFocus({ documentId: doc.document_id, bbox, label: field })
   }
 
   const decide = (decision: DecisionKey) => {
@@ -185,7 +170,7 @@ export default function ReviewDetail({
   }
 
   const highlight =
-    !viewingForm && focus && focus.documentId === activeDoc.document_id ? focus.bbox : null
+    !viewingForm && focus && focus.documentId === activeDoc?.document_id ? focus.bbox : null
 
   return (
     <div className="review">
@@ -217,12 +202,7 @@ export default function ReviewDetail({
           {detail.region} {detail.town}
         </span>
         <span className="review__when">접수 {detail.submitted_at ?? '-'}</span>
-                {detail.ai.final_status && <StatusBadge status={detail.ai.final_status} audience="officer" />}
-        {detail.score_sheet.items.length > 0 && (
-          <span className="review__score">
-            {detail.score_sheet.total} / {detail.score_sheet.max_total}점
-          </span>
-        )}
+                {detail.ai.final_status && <StatusBadge status={detail.ai.final_status} />}
         <span className="review__spacer" />
         <span className="review__role">{detail.role.name} 화면</span>
       </header>
@@ -236,7 +216,7 @@ export default function ReviewDetail({
                 key={d.document_id}
                 type="button"
                 className={
-                  !viewingForm && d.document_id === activeDoc.document_id
+                  !viewingForm && d.document_id === activeDoc?.document_id
                     ? 'review__tab review__tab--on'
                     : 'review__tab'
                 }
@@ -267,18 +247,18 @@ export default function ReviewDetail({
               </button>
             ))}
           </nav>
-          <DocumentViewer
+          {viewing ? <DocumentViewer
             doc={viewing}
             highlight={highlight}
             highlightLabel={focus?.label}
-          />
+          /> : <p className="muted">확인할 원본 서류가 없습니다.</p>}
         </section>
 
         {/* ---------------- 우 45% 판독 결과 ---------------- */}
         <section className="review__right">
           <Panel title="최종 판정">
             <div className="verdict">
-              {detail.ai.final_status && <StatusBadge status={detail.ai.final_status} audience="officer" />}
+              {detail.ai.final_status && <StatusBadge status={detail.ai.final_status} />}
               <span className="verdict__action">{detail.ai.recommended_action}</span>
             </div>
             <ul className="verdict__stages">
@@ -298,18 +278,6 @@ export default function ReviewDetail({
               <p className="muted">부적합·확인필요 사유가 없습니다.</p>
             )}
           </Panel>
-
-          {/* 선착순 사업에는 심사표가 없다. 대신 보완 기한과 항목별 지급 내역이
-              판단 근거다. 화면은 사업 코드가 아니라 `selection` 값으로 갈린다. */}
-          {detail.selection === 'scored' && (
-            <Panel title="심사표 (서식6)">
-              <ScoreSheet6
-                sheet={detail.score_sheet}
-                activeKey={focus?.scoreKey ?? null}
-                onSelect={focusScoreItem}
-              />
-            </Panel>
-          )}
 
           {detail.supplement && (
             <Panel title={`서류 보완 기한 (${detail.supplement.days}일)`}>
@@ -408,15 +376,11 @@ export default function ReviewDetail({
                 신청자가 온라인으로 작성한 값을 원본 서식 PDF에 그대로 얹은 것입니다.
                 항목 순서·표 구조·문구가 종이 서식과 같습니다.
               </p>
-              <p className="muted">
-                {viewingForm.form_no === '서식5'
-                  ? '서명란에는 캔버스 전자서명이 합성되어 있습니다. 동의 시각·IP는 동의 이력에 남습니다.'
-                  : '자동 판정 항목(거주기간·근로기간)은 신청 화면에서 선택된 구간 그대로 체크됩니다.'}
-              </p>
+
             </Panel>
           )}
 
-          <Panel title={`판독 결과 — ${activeDoc.label}`}>
+          {activeDoc && <Panel title={`판독 결과 — ${activeDoc.label}`}>
             <dl className="ocr">
               <dt>판별된 서류</dt>
               <dd>
@@ -477,7 +441,7 @@ export default function ReviewDetail({
                 ))}
               </ul>
             )}
-          </Panel>
+          </Panel>}
 
           <Panel title="담당자 처리">
             <p className="muted">

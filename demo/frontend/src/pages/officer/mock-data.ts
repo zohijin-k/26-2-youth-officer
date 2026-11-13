@@ -1,23 +1,4 @@
-/**
- * 담당자 화면 목업 데이터 — 백엔드 없이 "다양한 사람이 신청하면 이렇게 보인다"를
- * 보여주기 위한 프론트엔드 전용 데이터셋이다.
- *
- * 이 모듈이 지키는 규칙 셋:
- *
- *   1. **모양은 백엔드 응답과 같다.** `api.ts`의 `OfficerList`·`ReviewDetailData`를
- *      그대로 만족시킨다. 화면 컴포넌트는 목업인지 실데이터인지 모른 채 동작한다.
- *   2. **계산은 백엔드 규칙을 그대로 옮긴다.** 배점 구간(`rules/scoring.py`),
- *      동점자 키(시행지침 ①~④), 시군별 정원(`rules/programs.py`), 역할 3계층
- *      (`rules/roles.py`)이 서버 값과 어긋나면 목업을 보고 내린 판단이 실제와
- *      달라진다. 상수를 여기서 다시 쓰되 출처를 주석으로 남긴다.
- *   3. **행은 하드코딩하지 않고 생성한다.** 시연에 필요한 규모(시군별 정원 대비
- *      진행률·커트라인)는 수천 건이라 손으로 못 적는다. 대신 **고정 시드 난수**로
- *      만들어 새로고침해도 같은 화면이 나오게 한다.
- *
- * 목업을 켜는 방법과 다른 두 가지 대안(실제 신청 플로우 시드 / DB 직접 삽입)은
- * `demo/docs/officer-mock-data.md`에 적어 두었다.
- */
-
+/** Deterministic synthetic youth employment examples. Decisions remain in browser memory. */
 import type {
   DecisionKey,
   DocStatus,
@@ -26,29 +7,20 @@ import type {
   OfficerListQuery,
   OfficerRole,
   OfficerRow,
-  OfficerRowDoc,
-  QuotaRow,
   ReviewDetailData,
-  ScoreItemRow,
 } from '../../api.ts'
 
 /** 목업 신청 건의 id 시작점. 실제 DB id(1부터)와 절대 겹치지 않게 띄워 둔다. */
 export const MOCK_ID_BASE = 900_000
 
-export const isMockId = (applicationId: number) => applicationId >= MOCK_ID_BASE
+export const isMockId = (applicationId: number) => byId.has(applicationId)
 
-// ---------------------------------------------------------------- 서버 상수 사본
-
-const DOUBLE_SAVINGS = 'double_savings'
 const JOB_PACKAGE = 'job_package'
 
-const PROGRAM_NAMES: Record<string, string> = {
-  [DOUBLE_SAVINGS]: '전북청년 함께 두배적금',
-  [JOB_PACKAGE]: '전북청년 취업지원패키지',
-}
+const PROGRAM_NAMES: Record<string, string> = { [JOB_PACKAGE]: '전북청년 취업지원패키지' }
 
-/** 시행지침 '26년 시군별 배정 인원 (총 1,300명). `rules/programs.py`와 같은 값. */
-const QUOTA: Record<string, number> = {
+/** Relative geographic sampling weights; not application quotas. */
+const REGION_WEIGHTS: Record<string, number> = {
   전주시: 550,
   군산시: 180,
   익산시: 200,
@@ -65,7 +37,7 @@ const QUOTA: Record<string, number> = {
   부안군: 30,
 }
 
-const REGIONS = Object.keys(QUOTA)
+const REGIONS = Object.keys(REGION_WEIGHTS)
 
 // ---------------------------------------------------------------- 취업지원패키지
 //
@@ -275,44 +247,6 @@ const TOWNS: Record<string, string[]> = {
   부안군: ['부안읍', '줄포면', '계화면', '변산면'],
 }
 
-/** 항목 1. 중위소득 — (하한 %, 점수, 구간 라벨). `rules/scoring.INCOME_BANDS`. */
-const INCOME_BANDS: [number, number, string][] = [
-  [130, 28, '130% 이상'],
-  [120, 31, '120% 이상 ~ 130% 미만'],
-  [110, 34, '110% 이상 ~ 120% 미만'],
-  [100, 37, '100% 이상 ~ 110% 미만'],
-  [0, 40, '100% 미만'],
-]
-
-/** 항목 2. 도 거주기간 — 만 경과 연수 → (점수, 구간 라벨). */
-const RESIDENCE_BANDS: [number, string][] = [
-  [15, '1년 미만'],
-  [17, '1년 이상 ~ 2년 미만'],
-  [19, '2년 이상 ~ 3년 미만'],
-  [21, '3년 이상 ~ 4년 미만'],
-  [23, '4년 이상 ~ 5년 미만'],
-  [25, '5년 이상'],
-]
-
-/** 항목 3. 현직장 근로기간. */
-const WORK_BANDS: [number, string][] = [
-  [16, '1년 미만'],
-  [19, '1년 이상 ~ 2년 미만'],
-  [22, '2년 이상 ~ 3년 미만'],
-  [25, '3년 이상'],
-]
-
-/** 항목 4. 연령 — (상한 만나이, 점수, 구간 라벨). */
-const AGE_BANDS: [number, number, string][] = [
-  [24, 10, '24세 이하'],
-  [29, 9, '25~29세'],
-  [34, 8, '30~34세'],
-  [200, 7, '35세 이상'],
-]
-
-/** 신청 자격 상한. 넘으면 점수와 무관하게 부적합이다. */
-const INCOME_LIMIT_PERCENT = 140
-
 /** 거주·근로기간 역산 기준일이자 공고일. */
 const ANNOUNCEMENT_DATE = new Date('2026-03-03T00:00:00')
 
@@ -323,50 +257,6 @@ const AI_STATUS_LABELS: Record<DocStatus, string> = {
 }
 
 const PENDING = 'pending'
-
-/**
- * 두배적금 업로드 슬롯의 순서·표기. `api/officer.DOC_COLUMNS`와 같은 순서다.
- *
- * 목록의 서류 컬럼이 이 배열에서 나온다. 서버 응답과 컬럼 개수·순서·라벨이
- * 어긋나면 목업 화면과 실데이터 화면이 다른 표가 되고, 그러면 목업으로 시연한
- * 것이 실제로 되는지 아무도 확신할 수 없다.
- */
-const SAVINGS_DOC_COLUMNS: [string, string][] = [
-  ['resident_abstract', '초본'],
-  ['nhis_payment', '건보료'],
-  ['nhis_qualification', '자격확인'],
-  ['nhis_acquisition_loss', '자격득실'],
-  ['work_proof', '근로확인서류'],
-  ['__other__', '기타'],
-]
-
-/** 실제로 올려야 하는 슬롯. `기타`는 컬럼이지 슬롯이 아니다. */
-const SAVINGS_SLOT_ORDER = SAVINGS_DOC_COLUMNS.slice(0, 5).map(([slot]) => slot)
-
-/** 헤더가 서류명을 쥐는 칸. 서버의 `FIXED_DOC_COLUMNS`와 같다. */
-const FIXED_DOC_COLUMNS = new Set(SAVINGS_SLOT_ORDER.slice(0, 4))
-
-/** 서류 칸의 상태 표기. 서버의 `DOC_STATE_LABELS`와 같다. */
-const DOC_STATE_LABELS: Record<string, string> = {
-  PASS: '적합',
-  FAIL: '부적합',
-  NEEDS_REVIEW: '확인필요',
-}
-
-/** 목록 컬럼 (점수제). `api/officer.LIST_COLUMNS`와 같은 순서·라벨. */
-const LIST_COLUMNS = [
-  { key: 'application_no', label: '신청번호' },
-  { key: 'name', label: '성명' },
-  { key: 'region', label: '시군' },
-  { key: 'ai_status', label: 'AI판정' },
-  { key: 'total_score', label: '점수' },
-  { key: 'missing_count', label: '미비서류' },
-  // 서류 컬럼은 미비 개수 바로 뒤에 온다 — 개수를 보고 "어디가 걸렸나"로 눈이
-  // 이어지는 순서다. 목록은 `SAVINGS_DOC_COLUMNS`에서 조립한다.
-  ...SAVINGS_DOC_COLUMNS.map(([slot, label]) => ({ key: `doc:${slot}`, label })),
-  { key: 'submitted_at', label: '접수일시' },
-  { key: 'decision', label: '처리상태' },
-]
 
 /**
  * 목록 컬럼 (선착순).
@@ -386,65 +276,25 @@ const FIRST_COME_COLUMNS = [
   { key: 'decision', label: '처리상태' },
 ]
 
-// ---------------------------------------------------------------- 역할 3계층
-
-/** `rules/roles.py`의 ROLES를 그대로 옮긴 것. 문구가 어긋나면 안 된다. */
 export const MOCK_ROLES: OfficerRole[] = [
-  {
-    key: 'town',
-    name: '읍·면·동',
-    stage: '선발절차 2·3·4단계',
-    scope: '관할 읍·면·동 접수 건',
-    requires_region: true,
-    requires_town: true,
-    quota_ratio: null,
-    can_bulk: false,
-    notes: [
-      '구비서류 완비 여부(서명·직인 포함)를 건별로 확인합니다.',
-      '자격요건과 제외대상을 확인하고 심사표를 작성합니다.',
-      '건별 확인이 원칙이라 일괄 처리는 제공하지 않습니다.',
-    ],
-    actions: [
+  { key: 'town', name: '읍·면·동', stage: '신청 서류 검토', scope: '관할 읍·면·동 접수 건', requires_region: true, requires_town: true, can_bulk: false,
+    notes: ['구비서류는 건별로 확인합니다.'], actions: [
       { key: 'approve', label: '구비서류 완비 확인', result_label: '서류 완비 확인', tone: 'primary' },
       { key: 'hold', label: '보류', result_label: '보류', tone: 'neutral' },
       { key: 'reject', label: '반려', result_label: '반려', tone: 'danger' },
-    ],
-  },
-  {
-    key: 'city',
-    name: '시군',
-    stage: '선발절차 1·5단계',
-    scope: '관할 시군 전체',
-    requires_region: true,
-    requires_town: false,
-    quota_ratio: 1.2,
-    can_bulk: true,
-    notes: [
-      '읍·면·동이 작성한 심사표를 취합·검토합니다.',
-      '고득점순으로 배정인원의 120%를 선발해 도에 공문으로 제출합니다.',
-    ],
-    actions: [
-      { key: 'approve', label: '1차 선발 (배정인원 120%)', result_label: '1차 선발', tone: 'primary' },
+    ] },
+  { key: 'city', name: '시군', stage: '신청 서류 검토', scope: '관할 시군 전체', requires_region: true, requires_town: false, can_bulk: true,
+    notes: ['신청 서류와 항목별 지원 내역을 확인합니다.'], actions: [
+      { key: 'approve', label: '1차 선발', result_label: '1차 선발', tone: 'primary' },
       { key: 'hold', label: '보류', result_label: '보류', tone: 'neutral' },
       { key: 'reject', label: '반려', result_label: '반려', tone: 'danger' },
-    ],
-  },
-  {
-    key: 'province',
-    name: '도·청년허브센터',
-    stage: '선발절차 6단계',
-    scope: '14개 시군 전체',
-    requires_region: false,
-    requires_town: false,
-    quota_ratio: 1.0,
-    can_bulk: true,
-    notes: ['2차 검증(중복 조회) 후 고득점순으로 100%를 최종 선정·공고합니다.'],
-    actions: [
-      { key: 'approve', label: '최종 선정 (100%)', result_label: '최종 선정', tone: 'primary' },
+    ] },
+  { key: 'province', name: '도·청년허브센터', stage: '신청 서류 검토', scope: '14개 시군 전체', requires_region: false, requires_town: false, can_bulk: true,
+    notes: ['신청 서류와 항목별 지원 내역을 확인합니다.'], actions: [
+      { key: 'approve', label: '최종 선정', result_label: '최종 선정', tone: 'primary' },
       { key: 'hold', label: '보류', result_label: '보류', tone: 'neutral' },
       { key: 'reject', label: '반려', result_label: '반려', tone: 'danger' },
-    ],
-  },
+    ] },
 ]
 
 const roleOf = (key: string): OfficerRole =>
@@ -465,7 +315,7 @@ function decisionLabel(roleKey: string | null, decision: DecisionKey | null): st
  * 고정 시드 난수 (mulberry32).
  *
  * 새로고침할 때마다 목록이 바뀌면 시연 대본을 쓸 수 없다. 같은 시드로 항상 같은
- * 2천여 건이 나오게 한다.
+ * 430건이 나오게 한다.
  */
 function rng(seed: number): () => number {
   let a = seed >>> 0
@@ -486,9 +336,7 @@ const between = (random: () => number, lo: number, hi: number): number =>
 /**
  * 가운데가 두툼한 분포 (균등분포 `draws`회의 평균).
  *
- * 균등분포로 뽑으면 만점자가 너무 많이 나온다 — 신청자 2천 명 중 100명이 100점이면
- * 심사표에 변별력이 없다는 뜻이라 커트라인 시연이 무의미해진다. 연령과 소득을
- * 중앙에 모아 실제 접수 분포에 가깝게 만든다.
+ * 합성 입력이 한쪽 끝에 몰리지 않도록 가운데 값을 더 자주 뽑는다.
  */
 function bell(random: () => number, lo: number, hi: number, draws = 2): number {
   let sum = 0
@@ -511,43 +359,6 @@ const GIVEN_NAMES = [
   '동현', '혜원', '세준', '수빈', '재원', '다현', '우진', '연우', '성민', '윤서',
   '진우', '보라', '경민', '슬기', '영수', '미영', '정호', '은지', '상현', '지아',
 ]
-
-// ---------------------------------------------------------------- 채점
-
-interface Scored {
-  incomePercent: number
-  residenceYears: number
-  workYears: number
-  age: number
-  items: { key: string; band: string; score: number; max: number }[]
-  total: number
-}
-
-function bandOf<T extends [number, ...unknown[]]>(bands: T[], value: number): T {
-  return bands.find((b) => value >= b[0]) ?? bands[bands.length - 1]
-}
-
-function score(incomePercent: number, residenceYears: number, workYears: number, age: number): Scored {
-  const income = bandOf(INCOME_BANDS, incomePercent)
-  const residence = RESIDENCE_BANDS[Math.min(residenceYears, RESIDENCE_BANDS.length - 1)]
-  const work = WORK_BANDS[Math.min(workYears, WORK_BANDS.length - 1)]
-  const ageBand = AGE_BANDS.find((b) => age <= b[0]) ?? AGE_BANDS[AGE_BANDS.length - 1]
-
-  const items = [
-    { key: 'income', band: income[2], score: income[1], max: 40 },
-    { key: 'residence', band: residence[1], score: residence[0], max: 25 },
-    { key: 'work', band: work[1], score: work[0], max: 25 },
-    { key: 'age', band: ageBand[2], score: ageBand[1], max: 10 },
-  ]
-  return {
-    incomePercent,
-    residenceYears,
-    workYears,
-    age,
-    items,
-    total: items.reduce((sum, i) => sum + i.score, 0),
-  }
-}
 
 // ---------------------------------------------------------------- 한 건
 
@@ -595,28 +406,14 @@ interface JobSelection {
   receiptFlagged: boolean[]
 }
 
-/** 목록 행 + 상세 화면이 같이 읽는 목업 1건. */
 interface MockEntry {
   row: OfficerRow
-  scored: Scored | null
   birth: string
   address: string
-  transferIn: string
-  employedAt: string
-  householdSize: number
-  monthlyPremium: number
-  insuranceType: string
-  /** 근로확인서류 1종을 정하는 축. 취업패키지 건에서는 쓰지 않는다. */
-  workCategory: WorkCategory | null
   reasons: Reason[]
-  /** 상세 화면 좌측 탭에 뜨는 서류들. */
   docs: MockDoc[]
-  /** 취업패키지에서 고른 지원 항목. 두배적금은 빈 배열이다. */
   selections: JobSelection[]
-  /** 서류 보완 기한 (접수 + 7일). 보완 대상이 아니면 null. */
   supplementDeadline: string | null
-  /** 동점자 정렬 키 (시행지침 ①~④). 오름차순 정렬이 곧 순위다. */
-  tiebreak: number[]
   memo: string | null
   decidedAt: string | null
 }
@@ -629,26 +426,6 @@ function dateYearsBefore(random: () => number, years: number): string {
   const month = between(random, 1, 12)
   const day = between(random, 1, 28)
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-}
-
-/**
- * 그 날짜부터 공고일까지의 **만 경과 연수**.
- *
- * 배점 구간도 근거 문장도 이 값 하나만 본다. 둘이 다른 값을 쓰면 담당자가 읽는
- * 근거와 실제 점수가 어긋난다.
- */
-function fullYears(fromIso: string): number {
-  const from = new Date(`${fromIso}T00:00:00`)
-  let years = ANNOUNCEMENT_DATE.getFullYear() - from.getFullYear()
-  const months = ANNOUNCEMENT_DATE.getMonth() - from.getMonth()
-  if (months < 0 || (months === 0 && ANNOUNCEMENT_DATE.getDate() < from.getDate())) years -= 1
-  return Math.max(0, years)
-}
-
-/** 접수 일시 — 두배적금 신청기간 2026.3.3.(화) 09:00 ~ 3.16.(월) 18:00 안에서 고른다. */
-function submittedAt(random: () => number): string {
-  const day = between(random, 3, 16)
-  return `2026-03-${String(day).padStart(2, '0')}T${clockOf(random)}`
 }
 
 const clockOf = (random: () => number) =>
@@ -685,55 +462,6 @@ const daysBefore = (baseIsoDate: string, days: number) =>
 
 const daysAfter = (baseIso: string, days: number) =>
   new Date(Date.parse(`${baseIso}Z`) + days * 86_400_000).toISOString().slice(0, 19)
-
-/** 부적합·확인필요 사유 풀. 엔진 1·2단계가 실제로 내는 코드를 쓴다. */
-const FAIL_REASONS = [
-  {
-    stage: 'stage2',
-    code: 'INCOME_OVER_LIMIT',
-    message: '가구 기준 중위소득 140%를 초과합니다.',
-    doc_type: '건강보험료납부확인서',
-  },
-  {
-    stage: 'stage1',
-    code: 'WRONG_DOC_TYPE',
-    message: '주민등록초본이 아닌 주민등록등본이 제출되었습니다.',
-    doc_type: '주민등록등본',
-  },
-  {
-    stage: 'stage1',
-    code: 'ISSUED_BEFORE_CUTOFF',
-    message: "공고일('26. 3. 3.) 이전 발급분입니다.",
-    doc_type: '주민등록초본',
-  },
-  {
-    stage: 'stage2',
-    code: 'OUT_OF_REGION',
-    message: '주민등록 주소지가 전북특별자치도 밖입니다.',
-    doc_type: '주민등록초본',
-  },
-]
-
-const REVIEW_REASONS = [
-  {
-    stage: 'stage1',
-    code: 'LOW_CONFIDENCE',
-    message: '판독 신뢰도가 낮아 담당자 확인이 필요합니다. (0.62)',
-    doc_type: '주민등록초본',
-  },
-  {
-    stage: 'stage1',
-    code: 'MISSING_ADDRESS_HISTORY',
-    message: '초본에 과거 주소 이력이 포함되지 않았습니다.',
-    doc_type: '주민등록초본',
-  },
-  {
-    stage: 'stage1',
-    code: 'FILE_ENCRYPTED',
-    message: '파일 암호가 해제되지 않아 일부 항목을 읽지 못했습니다.',
-    doc_type: '건강보험자격확인서',
-  },
-]
 
 const MEMOS = [
   '초본 주소 이력 확인 완료.',
@@ -774,477 +502,6 @@ function rollDecision(
     }
   }
   return { decision: null, officerRole: null, memo: null }
-}
-
-// ---------------------------------------------------------------- 두배적금 서류 5종
-//
-// 공고문 제출서류 중 **업로드 대상**은 5종이다 — ⑧ 초본, ⑦ 소득재산 증빙 3종,
-// ⑥ 근로확인서류 1종. ①~⑤는 온라인 작성으로 갈음한다(`rules/required_docs.py`).
-// 이 중 ⑥만 근로유형에 따라 5종 중 하나로 갈린다 — 목록의 `근로확인서류` 칸에
-// 사람마다 다른 서류명이 뜨는 이유다.
-
-/** `rules/required_docs.WorkCategory`. 문자열까지 서버와 같아야 한다. */
-type WorkCategory =
-  | '직장가입자'
-  | '지역가입자·피부양자'
-  | '사업소득 사업자'
-  | '농업·임업'
-  | '어업'
-
-/**
- * 근로유형 분포. 근로청년 사업이라 직장가입자가 압도적으로 두껍고,
- * 농·어업 경영주는 드물게 섞인다. 목록에서 `근로확인서류` 칸이 대부분 같은
- * 서류명이되 가끔 다른 것이 섞여야 그 칸이 무엇을 위한 것인지 보인다.
- */
-const WORK_CATEGORY_WEIGHTS: [WorkCategory, number][] = [
-  ['직장가입자', 0.65],
-  ['지역가입자·피부양자', 0.15],
-  ['사업소득 사업자', 0.12],
-  ['농업·임업', 0.06],
-  ['어업', 0.02],
-]
-
-const BIZ_NAMES = ['한옥마을공방', 'OO스튜디오', 'OO커피로스터스', 'OO디자인', 'OO상회']
-const FARM_TYPES = ['논벼', '시설채소', '한우', '과수(사과)', '밭작물']
-const FISHERY_TYPES = ['연안어업', '양식어업', '내수면어업']
-
-/** 근로확인서류를 만드는 데 필요한 사실값. */
-interface WorkProofContext {
-  name: string
-  birth: string
-  region: string
-  employedAt: string
-  issued: string
-  employer: string
-  bizName: string
-  bizNo: string
-  farmNo: string
-}
-
-/**
- * 근로유형 → 그 사람이 내야 하는 근로확인서류 1종.
- *
- * `label`은 `rules/required_docs._work_proof`의 문구, `short`는
- * `api/officer.DOC_SHORT_BY_TYPE`의 표기와 같은 값이다. 목업과 서버가 다른 이름을
- * 보여주면 담당자가 두 화면을 같은 화면으로 읽지 못한다.
- */
-const WORK_PROOF: Record<
-  WorkCategory,
-  {
-    label: string
-    short: string
-    docType: string
-    dateField: string
-    fields: (ctx: WorkProofContext) => Record<string, string>
-  }
-> = {
-  직장가입자: {
-    label: '근로확인서류(4대보험 가입내역 확인서)',
-    short: '4대보험 가입내역',
-    docType: '4대보험가입내역확인서',
-    dateField: '발급일',
-    fields: (c) => ({
-      성명: c.name,
-      생년월일: c.birth,
-      사업장명칭: c.employer,
-      가입내역: '국민연금 · 건강보험 · 고용보험 · 산재보험',
-      '국민연금 가입자종별': '사업장가입자',
-      '국민연금 자격취득일': c.employedAt,
-      '건강보험 가입자종별': '직장가입자',
-      '건강보험 사업장명칭': c.employer,
-      '건강보험 자격취득일': c.employedAt,
-      '고용보험 상태': '가입',
-      '산재보험 상태': '가입',
-      발급일: c.issued,
-    }),
-  },
-  '지역가입자·피부양자': {
-    label: '근로확인서류(고용·산재보험 일용근로내역서)',
-    short: '일용근로내역서',
-    docType: '일용근로내역서',
-    dateField: '발급일',
-    fields: (c) => ({
-      성명: c.name,
-      생년월일: c.birth,
-      사업장명: c.employer,
-      최초근로일: c.employedAt,
-      '최근 3개월 근로일수': '54일',
-      발급일: c.issued,
-    }),
-  },
-  '사업소득 사업자': {
-    label: '근로확인서류(사업자등록증명)',
-    short: '사업자등록증명',
-    docType: '사업자등록증명',
-    dateField: '발급일',
-    fields: (c) => ({
-      성명: c.name,
-      생년월일: c.birth,
-      상호: c.bizName,
-      사업자등록번호: c.bizNo,
-      개업일: c.employedAt,
-      발급일: c.issued,
-    }),
-  },
-  '농업·임업': {
-    label: '근로확인서류(농업경영체 증명서)',
-    short: '농업경영체 증명서',
-    docType: '농업경영체증명서',
-    dateField: '발급일',
-    fields: (c) => ({
-      성명: c.name,
-      생년월일: c.birth,
-      경영체등록번호: c.farmNo,
-      경영형태: '단독경영주',
-      영농형태: c.bizName,
-      등록일: c.employedAt,
-      발급일: c.issued,
-    }),
-  },
-  어업: {
-    label: '근로확인서류(어업경영체 증명서)',
-    short: '어업경영체 증명서',
-    docType: '어업경영체증명서',
-    dateField: '발급일',
-    fields: (c) => ({
-      성명: c.name,
-      생년월일: c.birth,
-      경영체등록번호: c.farmNo,
-      경영형태: '단독경영주',
-      어업형태: c.bizName,
-      등록일: c.employedAt,
-      발급일: c.issued,
-    }),
-  },
-}
-
-/**
- * 판정 사유가 가리키는 서류 → 슬롯.
- *
- * 예전에는 서류가 한 장이라 사유를 아무 데나 얹어도 됐다. 이제 목록에 **어느
- * 서류가 걸렸는가**가 칸으로 보이므로, 사유가 엉뚱한 서류에 붙으면 담당자가
- * 클릭해 들어간 원본에 그 문제가 없다.
- */
-const DOC_TYPE_TO_SLOT: Record<string, string> = {
-  주민등록초본: 'resident_abstract',
-  주민등록등본: 'resident_abstract',
-  건강보험료납부확인서: 'nhis_payment',
-  건강보험자격확인서: 'nhis_qualification',
-  건강보험자격득실확인서: 'nhis_acquisition_loss',
-}
-
-/**
- * 목록의 서류 칸. 백엔드 `api/officer._doc_cells`와 **같은 규칙**을 따른다.
- *
- * `document_id`는 `toOfficerDocument`가 쓰는 것과 같은 식(신청건 × 100 + 순번)으로
- * 낸다. 목록에서 누른 칸과 상세의 탭이 같은 서류를 가리켜야 하기 때문이다.
- */
-function savingsDocCells(applicationId: number, docs: MockDoc[]): OfficerRowDoc[] {
-  const byIndex = new Map(docs.map((d, index) => [d.slotKey, { doc: d, index }]))
-  return SAVINGS_SLOT_ORDER.map((slot) => {
-    const found = byIndex.get(slot)
-    const proofLabel =
-      slot === 'work_proof' && found
-        ? (Object.values(WORK_PROOF).find((p) => p.docType === found.doc.docType)?.short ??
-          found.doc.label)
-        : ''
-    return {
-      column: slot,
-      slot_key: slot,
-      // 안 낸 서류에는 판독된 라벨이 없다. 체크리스트가 정한 이름을 쓴다.
-      label: found?.doc.label ?? SLOT_FALLBACK_LABELS[slot],
-      short_label: FIXED_DOC_COLUMNS.has(slot) ? '' : proofLabel || '근로확인서류',
-      status: found?.doc.status ?? null,
-      status_label: found ? DOC_STATE_LABELS[found.doc.status] : '미제출',
-      document_id: found ? applicationId * 100 + found.index : null,
-      required: true,
-    }
-  })
-}
-
-/** 안 낸 서류 칸에 띄울 이름. 체크리스트 표기를 그대로 쓴다. */
-const SLOT_FALLBACK_LABELS: Record<string, string> = {
-  resident_abstract: '주민등록초본',
-  nhis_payment: '2025년 건강보험료 납부확인서',
-  nhis_qualification: '건강보험 자격확인서',
-  nhis_acquisition_loss: '건강보험 자격득실확인서',
-  work_proof: '근로확인서류',
-}
-
-/** 가중치 표에서 하나 뽑기. */
-function weighted<T>(random: () => number, table: [T, number][]): T {
-  const dice = random()
-  let acc = 0
-  for (const [value, share] of table) {
-    acc += share
-    if (dice <= acc) return value
-  }
-  return table[table.length - 1][0]
-}
-
-function makeSavingsEntry(
-  random: () => number,
-  id: number,
-  seq: number,
-  region: string,
-): MockEntry {
-  const { town, name, address } = makePerson(random, region)
-
-  // --- 사람마다 다른 사실값. 날짜를 먼저 뽑고, 점수와 근거 문장은 **그 날짜에서**
-  // 역산한다. 목표 연수로 점수를 매기고 날짜만 따로 찍으면 "취업일 2021-09-13 ·
-  // 공고일 기준 5년 경과"처럼 근거 문장이 하루도 안 맞는 일이 생긴다.
-  //
-  // 근로청년 사업이라 20대 후반~30대 초반이 가장 두껍다.
-  const birth = dateYearsBefore(random, Math.round(bell(random, 19, 39, 4)))
-  const transferIn = dateYearsBefore(random, between(random, 0, 9))
-  const employedAt = dateYearsBefore(random, between(random, 0, 5))
-  const age = fullYears(birth)
-  const residenceYears = fullYears(transferIn)
-  const workYears = fullYears(employedAt)
-  const householdSize = between(random, 1, 5)
-
-  // 중위소득 비율. 중위 근처가 두껍고 140% 초과(자격 부적합)가 꼬리로 섞인다.
-  const incomePercent = Math.round(bell(random, 55, 152, 3) * 10) / 10
-  const overIncome = incomePercent > INCOME_LIMIT_PERCENT
-  // 고지금액은 비율에서 역산한 느낌만 낸다 (가구원수 4인 직장가입자 기준선 311,031원).
-  const monthlyPremium = Math.round((311_031 * (incomePercent / 140)) / 10) * 10
-
-  const scored = score(incomePercent, residenceYears, workYears, age)
-
-  // 근로유형이 근로확인서류 1종을 정한다. 건강보험 가입구분은 **여기서 따라
-  // 나온다** — 건보료 확인서에 "지역가입자"라고 찍혀 있는데 4대보험 가입내역
-  // 확인서를 낸 건은 말이 안 된다.
-  const workCategory = weighted(random, WORK_CATEGORY_WEIGHTS)
-  const insuranceType = workCategory === '직장가입자' ? '직장' : '지역'
-
-  const submitted = submittedAt(random)
-  const residenceDays = Math.round(
-    (ANNOUNCEMENT_DATE.getTime() - new Date(transferIn).getTime()) / 86_400_000,
-  )
-  const workDays = Math.round(
-    (ANNOUNCEMENT_DATE.getTime() - new Date(employedAt).getTime()) / 86_400_000,
-  )
-
-  // --- 서류 5종. 발급일은 공고일(2026-03-03) 이후, 접수일 이전이어야 인정된다.
-  const submittedDate = submitted.slice(0, 10)
-  const issued = daysBefore(submittedDate, between(random, 0, 8))
-  const employer = pick(random, JOB_EMPLOYERS)
-  const proof = WORK_PROOF[workCategory]
-  const proofCtx: WorkProofContext = {
-    name,
-    birth,
-    region,
-    employedAt,
-    issued,
-    employer,
-    bizName:
-      workCategory === '농업·임업'
-        ? pick(random, FARM_TYPES)
-        : workCategory === '어업'
-          ? pick(random, FISHERY_TYPES)
-          : `${region} ${pick(random, BIZ_NAMES)}`,
-    bizNo: `${between(random, 100, 999)}-${between(random, 10, 99)}-${between(random, 10_000, 99_999)}`,
-    farmNo: `${between(random, 1000, 9999)}-${between(random, 1000, 9999)}-${between(random, 10, 99)}`,
-  }
-
-  // 판독값은 전부 **위에서 뽑은 사실값에서 나온다**. 점수 근거 문장이 같은
-  // 날짜들에서 역산되므로, 서류가 다른 값을 보이면 심사표와 원본이 어긋난다.
-  const docs: MockDoc[] = [
-    {
-      slotKey: 'resident_abstract',
-      label: '주민등록초본',
-      docType: '주민등록초본',
-      expectedDocType: '주민등록초본',
-      dateField: '발급일',
-      status: 'PASS',
-      receiptAmount: null,
-      findings: [],
-      fields: {
-        성명: name,
-        생년월일: birth,
-        주소: address,
-        전입일: transferIn,
-        '최근 5년 주소변동': `${between(random, 1, 4)}회 (포함)`,
-        병역사항: age >= 20 ? '만기전역' : '해당없음',
-        발급일: issued,
-      },
-    },
-    {
-      slotKey: 'nhis_payment',
-      label: '2025년 건강보험료 납부확인서',
-      docType: '건강보험료납부확인서',
-      expectedDocType: '건강보험료납부확인서',
-      dateField: '발급일',
-      status: 'PASS',
-      receiptAmount: null,
-      findings: [],
-      fields: {
-        성명: name,
-        생년월일: birth,
-        가입구분: `${insuranceType}가입자`,
-        가구원수: `${householdSize}인`,
-        건강보험료: `${monthlyPremium.toLocaleString('ko-KR')}원`,
-        납부기간: "'25. 10월 ~ 12월 (3개월)",
-        발급일: issued,
-      },
-    },
-    {
-      slotKey: 'nhis_qualification',
-      label: '건강보험 자격확인서',
-      docType: '건강보험자격확인서',
-      expectedDocType: '건강보험자격확인서',
-      dateField: '발급일',
-      status: 'PASS',
-      receiptAmount: null,
-      findings: [],
-      fields: {
-        성명: name,
-        생년월일: birth,
-        가입구분: `${insuranceType}가입자`,
-        가구원수: `${householdSize}인`,
-        가구원: `본인 외 ${householdSize - 1}인`,
-        발급일: issued,
-      },
-    },
-    {
-      slotKey: 'nhis_acquisition_loss',
-      label: '건강보험 자격득실확인서',
-      docType: '건강보험자격득실확인서',
-      expectedDocType: '건강보험자격득실확인서',
-      dateField: '발급일',
-      status: 'PASS',
-      receiptAmount: null,
-      findings: [],
-      fields: {
-        성명: name,
-        생년월일: birth,
-        사업장명: employer,
-        취득일: employedAt,
-        상실일: '(재직 중)',
-        '최근 5년 변동내역': `${between(random, 1, 3)}건 (포함)`,
-        발급일: issued,
-      },
-    },
-    {
-      slotKey: 'work_proof',
-      label: proof.label,
-      docType: proof.docType,
-      expectedDocType: proof.docType,
-      dateField: proof.dateField,
-      status: 'PASS',
-      receiptAmount: null,
-      findings: [],
-      fields: proof.fields(proofCtx),
-    },
-  ]
-
-  // --- 문제를 **어느 서류에** 얹을지 고른다.
-  //
-  // 소득 140% 초과는 서류가 멀쩡해도 자격이 안 되는 경우라, 건보료 확인서에
-  // 붙는다. 나머지는 사유의 `doc_type`이 가리키는 서류에 붙인다 — 담당자가
-  // 목록에서 빨간 칸을 눌러 들어갔는데 그 원본에 문제가 없으면 안 된다.
-  const reasons: Reason[] = []
-  let reasonSeverity: DocStatus = 'PASS'
-  const dice = random()
-  if (overIncome) {
-    reasons.push(FAIL_REASONS[0])
-    reasonSeverity = 'FAIL'
-  } else if (dice < 0.09) {
-    reasons.push(pick(random, REVIEW_REASONS))
-    reasonSeverity = 'NEEDS_REVIEW'
-  } else if (dice < 0.13) {
-    reasons.push(pick(random, FAIL_REASONS.slice(1)))
-    reasonSeverity = 'FAIL'
-  }
-
-  for (const reason of reasons) {
-    const slot = DOC_TYPE_TO_SLOT[reason.doc_type ?? ''] ?? 'nhis_payment'
-    const target = docs.find((d) => d.slotKey === slot)
-    if (!target) continue
-    target.findings.push({
-      code: reason.code,
-      message: reason.message,
-      how_to_fix: '원본을 다시 발급받아 올리도록 안내하세요.',
-      severity: reasonSeverity === 'PASS' ? 'NEEDS_REVIEW' : reasonSeverity,
-    })
-    // 2단계 사유(소득 초과·도외 주소)는 **서류의 흠이 아니라 자격의 문제**다.
-    // 근거로 남기되 서류 판정은 건드리지 않는다 — 백엔드의 `missing_count`도
-    // 1단계(`stage1_status`)만 세므로, 여기서 서류를 부적합으로 눕히면 목업의
-    // 미비 개수가 실데이터보다 부풀어 오른다.
-    if (reason.stage === 'stage1') target.status = reasonSeverity
-  }
-
-  // --- 안 낸 서류. 전건이 완비면 `미제출` 칸이 한 번도 안 보여서, 그 컬럼이
-  //     무엇을 위한 것인지 시연에서 드러나지 않는다.
-  if (random() < 0.12) {
-    const dropped = between(random, 0, docs.length - 1)
-    docs.splice(dropped, 1)
-  }
-
-  // --- 판정과 미비 개수는 **서류에서 역산한다**. 따로 굴리면 목록의 숫자와
-  //     서류 칸이 따로 논다 (취업패키지 쪽이 이미 이 방식이다).
-  // 최종 판정은 1단계 서류 판정과 2단계 자격 사유 중 **더 나쁜 쪽**이다.
-  const verdicts: DocStatus[] = [...docs.map((d) => d.status), reasonSeverity]
-  const aiStatus: DocStatus = verdicts.includes('FAIL')
-    ? 'FAIL'
-    : verdicts.includes('NEEDS_REVIEW')
-      ? 'NEEDS_REVIEW'
-      : 'PASS'
-  const missing =
-    SAVINGS_SLOT_ORDER.length -
-    docs.length +
-    docs.filter((d) => d.status !== 'PASS').length
-
-  const { decision, officerRole, memo } = rollDecision(random, aiStatus)
-
-  return {
-    row: {
-      application_id: id,
-      application_no: `DS-2026-${String(seq).padStart(6, '0')}`,
-      name,
-      region,
-      town,
-      program_code: DOUBLE_SAVINGS,
-      program_name: PROGRAM_NAMES[DOUBLE_SAVINGS],
-      ai_status: aiStatus,
-      ai_status_label: AI_STATUS_LABELS[aiStatus],
-      total_score: scored.total,
-      max_total: 100,
-      missing_count: missing,
-      submitted_at: submitted,
-      status: decision ? 'decided' : 'submitted',
-      decision,
-      decision_label: decisionLabel(officerRole, decision),
-      officer_role: officerRole,
-      rank: null,
-      // 목록의 서류 칸. 서류가 정해진 뒤라야 채울 수 있어 여기서 만든다.
-      documents: savingsDocCells(id, docs),
-    },
-    scored,
-    birth,
-    address,
-    transferIn,
-    employedAt,
-    householdSize,
-    monthlyPremium,
-    insuranceType,
-    workCategory,
-    reasons,
-    docs,
-    selections: [],
-    // 두배적금은 보완 자체가 없다 (공고문: 미비 시 추가·보충서류를 요청하지 않음).
-    supplementDeadline: null,
-    // 시행지침 ①소득 적은 순 ②거주 긴 순 ③근로 긴 순 ④연령 낮은 순.
-    tiebreak: [
-      -scored.total,
-      incomePercent,
-      -residenceDays,
-      -workDays,
-      -new Date(birth).getTime() / 86_400_000,
-    ],
-    memo,
-    decidedAt: decision ? submittedAt(random) : null,
-  }
 }
 
 // ---------------------------------------------------------------- 취업패키지 불인정 사유
@@ -1856,16 +1113,12 @@ function makeJobEntry(
       program_name: PROGRAM_NAMES[JOB_PACKAGE],
       ai_status: aiStatus,
       ai_status_label: AI_STATUS_LABELS[aiStatus],
-      // 선착순 사업이라 심사표가 없다. 점수 컬럼은 비운다.
-      total_score: null,
-      max_total: null,
       missing_count: missing,
       submitted_at: submitted,
       status: decision ? 'decided' : 'submitted',
       decision,
       decision_label: decisionLabel(officerRole, decision),
       officer_role: officerRole,
-      rank: null,
       items_label: selections
         .map(
           (s) =>
@@ -1873,85 +1126,30 @@ function makeJobEntry(
         )
         .join(' · '),
     },
-    scored: null,
     birth,
     address,
-    transferIn: '',
-    employedAt: '',
-    householdSize: 0,
-    monthlyPremium: 0,
-    insuranceType: '',
-    // 취업패키지는 체크리스트가 근로유형이 아니라 **고른 지원 항목**으로 갈린다.
-    workCategory: null,
     reasons,
     docs,
     selections,
     // 「7일 내 서류 보완안내 · 미보완시 지원대상자 제외 및 후순위자 선정」.
     supplementDeadline: aiStatus === 'PASS' ? null : daysAfter(submitted, JOB_SUPPLEMENT_DAYS),
-    // 점수순 정렬에서는 맨 뒤로 보내되, 그 안에서는 접수 순서를 지킨다.
-    tiebreak: [999, Date.parse(`${submitted}Z`) / 86_400_000],
     memo,
     decidedAt: decision ? daysAfter(submitted, between(random, 1, 5)) : null,
   }
 }
 
-// ---------------------------------------------------------------- 데이터셋
-
-/**
- * 시군별 접수 건수 배수.
- *
- * 정원 대비 진행률 배지와 커트라인이 뜻을 가지려면 접수가 정원 언저리까지 차 있어야
- * 한다. 도시는 정원을 넘기고 군 지역은 못 채우는 실제 양상을 흉내 낸다.
- */
-const APPLY_RATIO: Record<string, number> = {
-  전주시: 1.35,
-  군산시: 1.15,
-  익산시: 1.22,
-  정읍시: 0.95,
-  남원시: 0.86,
-  김제시: 0.9,
-  완주군: 1.05,
-  진안군: 0.6,
-  무주군: 0.53,
-  장수군: 0.6,
-  임실군: 0.73,
-  순창군: 0.66,
-  고창군: 0.83,
-  부안군: 0.9,
-}
-
 function buildDataset(): MockEntry[] {
-  const random = rng(20260303)
-  const entries: MockEntry[] = []
-  let seq = 1
-
-  // 두배적금 — 시군별 정원 × 배수.
-  for (const region of REGIONS) {
-    const count = Math.round(QUOTA[region] * APPLY_RATIO[region])
-    for (let i = 0; i < count; i += 1) {
-      entries.push(makeSavingsEntry(random, MOCK_ID_BASE + entries.length, seq++, region))
-    }
-  }
-
-  // 취업지원패키지 — 선착순. 신청 1건이 항목을 복수로 고르므로 **건수와 항목
-  // 건수가 다르다**. 지원규모 900건은 성과목표 4종의 합(330+20+150+400)이라
-  // 항목 건수로 읽는 것이 맞고, 여기서는 항목 건수가 900의 70% 근처가 되도록
-  // 신청 건수를 잡는다.
-  const jobCount = 430
-  for (let i = 0; i < jobCount; i += 1) {
-    // 인구 비례로 시군을 고른다. 정원 큰 시군이 더 자주 뽑히게 가중치를 준다.
-    const region = weightedRegion(random)
-    entries.push(makeJobEntry(random, MOCK_ID_BASE + entries.length, seq++, region))
-  }
-
-  return entries
+  const random = rng(20260916)
+  // Keep the previous youth ID range without generating the removed savings entries.
+  return Array.from({ length: 430 }, (_, index) =>
+    makeJobEntry(random, MOCK_ID_BASE + 1515 + index, 1516 + index, weightedRegion(random)))
 }
 
 function weightedRegion(random: () => number): string {
-  const total = REGIONS.reduce((sum, r) => sum + QUOTA[r], 0)
+  const total = REGIONS.reduce((sum, r) => sum + REGION_WEIGHTS[r], 0)
   let x = random() * total
   for (const region of REGIONS) {
-    x -= QUOTA[region]
+    x -= REGION_WEIGHTS[region]
     if (x <= 0) return region
   }
   return REGIONS[0]
@@ -1961,87 +1159,6 @@ function weightedRegion(random: () => number): string {
 const ENTRIES: MockEntry[] = buildDataset()
 
 const byId = new Map(ENTRIES.map((e) => [e.row.application_id, e]))
-
-/**
- * 시군 내 고득점순 순위.
- *
- * 필터를 걸었다고 1등이 바뀌면 커트라인과 어긋난다. 그래서 순위는 언제나 **필터
- * 이전 전체**를 기준으로 매긴다 (`api/officer._rank_by_region`과 같은 규칙).
- */
-function rankByRegion(): Map<number, number> {
-  const ranks = new Map<number, number>()
-  for (const region of REGIONS) {
-    const ranked = ENTRIES.filter((e) => e.row.region === region && e.scored !== null).sort(
-      (a, b) => compareTiebreak(a.tiebreak, b.tiebreak),
-    )
-    ranked.forEach((e, i) => ranks.set(e.row.application_id, i + 1))
-  }
-  return ranks
-}
-
-function compareTiebreak(a: number[], b: number[]): number {
-  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
-    const diff = (a[i] ?? 0) - (b[i] ?? 0)
-    if (diff !== 0) return diff
-  }
-  return 0
-}
-
-const RANKS = rankByRegion()
-
-/**
- * 취업패키지의 **선착순 접수 순번**.
- *
- * 이 사업에는 점수가 없다. 순위 칸에 넣을 값은 "몇 번째로 들어왔는가" 하나뿐이고,
- * 담당자가 예산 소진 시점을 가늠하는 근거도 그것이다. 백엔드(`api/officer.py`)는
- * 아직 점수제 순위만 매겨 이 칸을 비워 보내는데, 선착순 사업에서는 접수 순번을
- * 넣는 편이 맞다고 보고 목업이 먼저 그렇게 한다.
- */
-function firstComeRanks(): Map<number, number> {
-  const ranks = new Map<number, number>()
-  ENTRIES.filter((e) => e.row.program_code === JOB_PACKAGE)
-    .sort((a, b) => (a.row.submitted_at ?? '').localeCompare(b.row.submitted_at ?? ''))
-    .forEach((e, i) => ranks.set(e.row.application_id, i + 1))
-  return ranks
-}
-
-const JOB_RANKS = firstComeRanks()
-
-const rankOf = (entry: MockEntry): number | null =>
-  entry.row.program_code === JOB_PACKAGE
-    ? (JOB_RANKS.get(entry.row.application_id) ?? null)
-    : (RANKS.get(entry.row.application_id) ?? null)
-
-// ---------------------------------------------------------------- 정원 배지
-
-function cutoff(ranked: MockEntry[], limit: number): number | null {
-  if (limit <= 0 || ranked.length < limit) return null
-  return ranked[limit - 1].row.total_score
-}
-
-function quotaRows(role: OfficerRole, regions: string[]): QuotaRow[] {
-  return regions
-    .filter((region) => QUOTA[region] !== undefined)
-    .map((region) => {
-      const limit = QUOTA[region]
-      const mine = ENTRIES.filter((e) => e.row.region === region)
-      const ranked = mine
-        .filter((e) => e.scored !== null)
-        .sort((a, b) => compareTiebreak(a.tiebreak, b.tiebreak))
-      const limit120 = Math.ceil(limit * 1.2)
-      return {
-        region,
-        quota: limit,
-        applied: mine.length,
-        selected: mine.filter((e) => e.row.decision === 'approve').length,
-        limit_120: limit120,
-        cutoff_120: cutoff(ranked, limit120),
-        cutoff_100: cutoff(ranked, limit),
-        role_cutoff: cutoff(ranked, Math.ceil(limit * (role.quota_ratio ?? 1.2))),
-        rate_percent: Math.round((mine.length / limit) * 1000) / 10,
-      }
-    })
-}
 
 /**
  * 선착순 접수 진행률.
@@ -2071,106 +1188,43 @@ function firstComeSummary(programCode: string | undefined): OfficerList['first_c
   }
 }
 
-// ---------------------------------------------------------------- 목록
-
-/** 접수 목록. 필터·정렬·페이지는 백엔드와 같은 순서로 적용한다. */
 export function mockOfficerList(query: OfficerListQuery): OfficerList {
   const role = roleOf(query.role)
-
-  // --- 역할 범위. 관할을 고르지 않았으면 접수가 있는 첫 관할을 자동으로 집는다.
-  let scoped = ENTRIES
-  let pickedRegion = ''
-  let pickedTown = ''
+  let rows = ENTRIES
+  let region = ''
+  let town = ''
   if (role.requires_region) {
-    const available = REGIONS.filter((r) => ENTRIES.some((e) => e.row.region === r))
-    pickedRegion = query.region || available[0] || REGIONS[0]
-    scoped = scoped.filter((e) => e.row.region === pickedRegion)
+    region = query.region || REGIONS[0]
+    rows = rows.filter((e) => e.row.region === region)
   }
+  const towns = [...new Set(rows.map((e) => e.row.town))].sort()
   if (role.requires_town) {
-    const towns = [...new Set(scoped.map((e) => e.row.town))].sort()
-    pickedTown = query.town || towns[0] || ''
-    scoped = scoped.filter((e) => e.row.town === pickedTown)
+    town = query.town || towns[0] || ''
+    rows = rows.filter((e) => e.row.town === town)
   }
-
-  // --- 정원 배지는 필터와 무관하게 역할의 관할 전체를 기준으로 낸다.
-  //
-  // 다만 시군별 정원은 **두배적금에만** 있는 개념이다(시행지침 배정 인원). 선착순
-  // 사업을 고른 상태에서 두배적금 정원 배지를 띄우면 담당자가 지금 보는 목록의
-  // 진행률로 읽는다. 그 자리는 선착순 접수 진행률 배지가 대신한다.
-  const quota =
-    query.program === JOB_PACKAGE
-      ? []
-      : quotaRows(role, role.requires_region ? [pickedRegion] : REGIONS)
-
-  let rows = scoped
-  if (query.program) rows = rows.filter((e) => e.row.program_code === query.program)
   if (query.ai_status) rows = rows.filter((e) => e.row.ai_status === query.ai_status)
   if (query.status === PENDING) rows = rows.filter((e) => !e.row.decision)
   else if (query.status) rows = rows.filter((e) => e.row.decision === query.status)
-  if (query.submitted_from)
-    rows = rows.filter((e) => (e.row.submitted_at ?? '') >= query.submitted_from!)
-  if (query.submitted_to)
-    rows = rows.filter((e) => (e.row.submitted_at ?? '').slice(0, 10) <= query.submitted_to!)
-
-  // 두배적금은 점수순, 취업패키지는 접수순이 기본이다 — 선발 방식이 다르다.
-  const defaultSort = query.program === JOB_PACKAGE ? 'submitted' : 'score'
-  const sortKey = query.sort || defaultSort
-  rows =
-    sortKey === 'submitted'
-      ? [...rows].sort((a, b) => (a.row.submitted_at ?? '').localeCompare(b.row.submitted_at ?? ''))
-      : [...rows].sort((a, b) => compareTiebreak(a.tiebreak, b.tiebreak))
-
+  if (query.submitted_from) rows = rows.filter((e) => (e.row.submitted_at ?? '') >= query.submitted_from!)
+  if (query.submitted_to) rows = rows.filter((e) => (e.row.submitted_at ?? '').slice(0, 10) <= query.submitted_to!)
+  rows = [...rows].sort((a, b) => (a.row.submitted_at ?? '').localeCompare(b.row.submitted_at ?? ''))
   const total = rows.length
   const page = Math.max(1, query.page ?? 1)
   const pageSize = Math.max(1, Math.min(query.page_size ?? 20, 200))
-  const window = rows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
-
   return {
     role,
-    scope: {
-      region: pickedRegion,
-      town: pickedTown,
-      region_locked: role.requires_region,
-      town_locked: role.requires_town,
-      regions: REGIONS,
-      towns: pickedRegion ? [...TOWNS[pickedRegion]].sort() : [],
-    },
+    scope: { region, town, region_locked: role.requires_region, town_locked: role.requires_town, regions: REGIONS, towns },
     filters: {
-      programs: Object.entries(PROGRAM_NAMES).map(([code, name]) => ({ code, name })),
-      ai_statuses: (Object.keys(AI_STATUS_LABELS) as DocStatus[]).map((value) => ({
-        value,
-        label: AI_STATUS_LABELS[value],
-      })),
-      statuses: [
-        { value: PENDING, label: '미처리' },
-        ...role.actions.map((a) => ({ value: a.key, label: a.result_label })),
-      ],
-      // 선착순 사업에 점수순 정렬을 띄우면 누를 수는 있는데 아무 뜻이 없다.
-      sorts:
-        query.program === JOB_PACKAGE
-          ? [{ value: 'submitted', label: '접수순 (선착순)' }]
-          : [
-              { value: 'score', label: '점수순 (두배적금)' },
-              { value: 'submitted', label: '접수순' },
-            ],
-      applied: {
-        program: query.program ?? null,
-        status: query.status ?? null,
-        ai_status: query.ai_status ?? null,
-        submitted_from: query.submitted_from ?? null,
-        submitted_to: query.submitted_to ?? null,
-        sort: sortKey,
-      },
+      programs: [{ code: JOB_PACKAGE, name: PROGRAM_NAMES[JOB_PACKAGE] }],
+      ai_statuses: (Object.keys(AI_STATUS_LABELS) as DocStatus[]).map((value) => ({ value, label: AI_STATUS_LABELS[value] })),
+      statuses: [{ value: PENDING, label: '미처리' }, ...role.actions.map((a) => ({ value: a.key, label: a.result_label }))],
+      sorts: [{ value: 'submitted', label: '접수순 (선착순)' }],
+      applied: { program: JOB_PACKAGE, status: query.status ?? null, ai_status: query.ai_status ?? null, submitted_from: query.submitted_from ?? null, submitted_to: query.submitted_to ?? null, sort: 'submitted' },
     },
-    columns: query.program === JOB_PACKAGE ? FIRST_COME_COLUMNS : LIST_COLUMNS,
-    rank_label: query.program === JOB_PACKAGE ? '순번' : '순위',
-    quota,
-    first_come: firstComeSummary(query.program),
-    total,
-    page,
-    page_size: pageSize,
-    page_count: Math.max(1, Math.ceil(total / pageSize)),
-    rows: window.map((e) => ({ ...e.row, rank: rankOf(e) })),
+    columns: FIRST_COME_COLUMNS,
+    first_come: firstComeSummary(JOB_PACKAGE),
+    total, page, page_size: pageSize, page_count: Math.max(1, Math.ceil(total / pageSize)),
+    rows: rows.slice((page - 1) * pageSize, page * pageSize).map((e) => e.row),
   }
 }
 
@@ -2185,11 +1239,15 @@ export function mockOfficerList(query: OfficerListQuery): OfficerList {
  * `FIELD_Y` 좌표가 곧 bbox 좌표라 하이라이트가 실제로 맞는다.
  */
 const PAGE_W = 760
+
 const PAGE_H = 1040
+
 const VALUE_X0 = 320
+
 const VALUE_X1 = 660
 
 const FIELD_Y0 = 240
+
 const FIELD_STEP = 60
 
 const fieldY = (index: number) => FIELD_Y0 + index * FIELD_STEP
@@ -2202,11 +1260,6 @@ const bboxAt = (index: number) => ({
   x1: VALUE_X1,
   y1: fieldY(index) + 10,
 })
-
-const bboxOf = (fields: Record<string, string>, field: string) => {
-  const index = Object.keys(fields).indexOf(field)
-  return index < 0 ? null : bboxAt(index)
-}
 
 /** SVG 텍스트에 들어가면 안 되는 문자. 판독값에 &, < 가 섞여도 깨지지 않게 한다. */
 const esc = (value: string) =>
@@ -2313,73 +1366,6 @@ function toOfficerDocument(entry: MockEntry, doc: MockDoc, index: number): Offic
   }
 }
 
-const SCORE_LABELS: Record<string, string> = {
-  income: '1. 중위소득(가구소득)',
-  residence: '2. 도 거주기간',
-  work: '3. 근로기간(현 직장)',
-  age: '4. 신청자 연령',
-}
-
-const SCORE_SOURCE_FIELD: Record<string, string> = {
-  income: '건강보험료',
-  residence: '전입일',
-  // 근로기간의 근거는 자격득실확인서의 **취득일**이다. 서류마다 같은 사실을
-  // 부르는 이름이 다르므로, 필드명은 그 서류의 표기를 따라야 하이라이트가 맞는다.
-  work: '취득일',
-  age: '생년월일',
-}
-
-/**
- * 심사 항목 → 그 점수의 근거가 되는 서류.
- *
- * 항목을 클릭하면 좌측 뷰어가 이 서류의 해당 좌표로 간다 (R4.3). 소득은 건보료
- * 확인서에, 거주기간·연령은 초본에, 근로기간은 자격득실확인서의 취득일에 근거가
- * 있다 — 항목마다 봐야 할 종이가 다르다.
- */
-const SCORE_SOURCE_SLOT: Record<string, string> = {
-  income: 'nhis_payment',
-  residence: 'resident_abstract',
-  work: 'nhis_acquisition_loss',
-  age: 'resident_abstract',
-}
-
-function scoreItems(entry: MockEntry): ScoreItemRow[] {
-  if (!entry.scored) return []
-  return entry.scored.items.map((item) => {
-    const field = SCORE_SOURCE_FIELD[item.key]
-    // 근거 서류를 안 낸 건이면(미제출) 첫 서류로 떨어진다 — 하이라이트는 못
-    // 하지만 심사표 자체는 그려야 한다.
-    const index = entry.docs.findIndex((d) => d.slotKey === SCORE_SOURCE_SLOT[item.key])
-    const sourceIndex = index < 0 ? 0 : index
-    const source = entry.docs[sourceIndex]
-    const doc = entry.row.application_id * 100 + sourceIndex
-    const basis: Record<string, string> = {
-      income: `가구원수 ${entry.householdSize}인 · 월 고지금액 ${entry.monthlyPremium.toLocaleString(
-        'ko-KR',
-      )}원 → 중위소득 ${entry.scored!.incomePercent}%`,
-      residence: `전입일 ${entry.transferIn} · 공고일(2026-03-03) 기준 ${entry.scored!.residenceYears}년 경과`,
-      work: `현 직장 취업일 ${entry.employedAt} · 공고일 기준 ${entry.scored!.workYears}년 경과`,
-      age: `생년월일 ${entry.birth} · 2026-03-03 기준 만 ${entry.scored!.age}세`,
-    }
-    return {
-      key: item.key,
-      label: SCORE_LABELS[item.key],
-      score: item.score,
-      max_score: item.max,
-      band: item.band,
-      basis: basis[item.key],
-      source_doc: source.docType,
-      source_document_id: doc,
-      source_origin: '목업 판독값',
-      bbox: bboxOf(source.fields, field),
-      incomplete: false,
-      source_slot_key: source.slotKey,
-      source_file_url: null,
-      source_file_format: 'png',
-    }
-  })
-}
-
 const won = (value: number) => `${value.toLocaleString('ko-KR')}원`
 
 /**
@@ -2473,169 +1459,32 @@ function supplementView(entry: MockEntry): ReviewDetailData['supplement'] {
   }
 }
 
-/** 심사 상세. 분할 뷰가 읽는 전부를 목업으로 채운다. */
 export function mockReviewDetail(applicationId: number, roleKey: string): ReviewDetailData {
   const entry = byId.get(applicationId)
-  if (!entry) throw new Error(`목업에 없는 신청 건입니다 (${applicationId})`)
-
-  const role = roleOf(roleKey)
-  const isSavings = entry.row.program_code === DOUBLE_SAVINGS
-  const items = scoreItems(entry)
-  const byKey = new Map(items.map((i) => [i.key, i]))
-  const overIncome = entry.scored !== null && entry.scored.incomePercent > INCOME_LIMIT_PERCENT
-
-  // 초본을 떼 보니 도외 주소인 건은 자격요건 ①이 무너진다.
-  const outOfRegion = entry.docs.some((d) =>
-    d.findings.some((f) => f.code === 'OUT_OF_REGION'),
-  )
-  const abstractDoc = entry.docs.find((d) => d.slotKey === 'resident_abstract')
-
-  const eligibility = [
-    {
-      key: 'residence',
-      label: isSavings
-        ? '① 거주지 — 공고일 기준 전북특별자치도 주민등록'
-        : '① 거주지 — 전북특별자치도 내 거주 청년',
-      ok: !outOfRegion,
-      basis: isSavings
-        ? `주소지 ${entry.row.region} · ${byKey.get('residence')?.basis ?? entry.address}`
-        : `주민등록초본 주소 ${abstractDoc?.fields['주소'] ?? entry.address}`,
-    },
-    {
-      key: 'age',
-      label: isSavings
-        ? '② 연령 — 2026-03-03 기준 만 18~39세'
-        : '② 연령 — 2026년 기준 18~39세 (1987.1.1. ~ 2008.12.31. 출생)',
-      ok: true,
-      basis: byKey.get('age')?.basis ?? `생년월일 ${entry.birth}`,
-    },
-  ]
-  if (!isSavings) {
-    // 사업계획서 「※ 2026. 1. 1. 이후의 서류만 인정」 — 이 사업 심사의 축이라
-    // 자격요건 칸에 한 줄로 세운다.
-    const stale = entry.docs.filter((d) =>
-      d.findings.some((f) => f.code === 'ISSUED_BEFORE_CUTOFF'),
-    )
-    eligibility.push({
-      key: 'doc_period',
-      label: '③ 서류 인정 기간 — 2026. 1. 1. 이후 발급·결제분',
-      ok: stale.length === 0,
-      basis:
-        stale.length === 0
-          ? '제출 서류의 기준 날짜가 모두 인정 기간 안입니다.'
-          : stale
-              .map((d) => `${d.label}: ${d.dateField} ${d.fields[d.dateField]}`)
-              .join(' · '),
-    })
-  }
-  if (isSavings) {
-    eligibility.push({
-      key: 'work',
-      label: '③ 근로 — 공고일 기준 계속 근로 중',
-      ok: true,
-      basis: byKey.get('work')?.basis ?? '',
-    })
-    eligibility.push({
-      key: 'income',
-      label: '④ 소득 — 가구 기준 중위소득 140% 이하',
-      ok: !overIncome,
-      basis: byKey.get('income')?.basis ?? '',
-    })
-  }
-
-  const exclusions = isSavings
-    ? [
-        {
-          label:
-            '자가진단 6. 제외 대상(유사 자산형성사업 수혜자·직업군인·수급자 등) 해당 시 선정 취소에 동의',
-          answer: '예',
-          ok: true,
-          source: '서식2 자가진단',
-        },
-        {
-          label: '자가진단 8. 중도해지 사유(사망·전출·부정수급 등) 확인',
-          answer: '예',
-          ok: true,
-          source: '서식2 자가진단',
-        },
-        {
-          label: '동일 사업 중복 신청',
-          answer: '해당 없음',
-          ok: true,
-          source: '엔진 2단계 (행복e음·일모아 조회 자리 — 데모는 미연동)',
-        },
-        {
-          label: '유사 자산형성사업 동시 수혜',
-          answer: '해당 없음',
-          ok: true,
-          source: '엔진 2단계 (행복e음·일모아 조회 자리 — 데모는 미연동)',
-        },
-      ]
-    : [
-        {
-          label: '동일 사업 중복 신청',
-          answer: '해당 없음',
-          ok: true,
-          source: '엔진 2단계 (행복e음·일모아 조회 자리 — 데모는 미연동)',
-        },
-      ]
-
+  if (!entry) throw new Error('목업에 없는 취업지원패키지 신청입니다.')
+  const outOfRegion = entry.docs.some((d) => d.findings.some((f) => f.code === 'OUT_OF_REGION'))
+  const abstract = entry.docs.find((d) => d.slotKey === 'resident_abstract')
+  const stale = entry.docs.filter((d) => d.findings.some((f) => f.code === 'ISSUED_BEFORE_CUTOFF'))
   return {
-    application_id: entry.row.application_id,
-    application_no: entry.row.application_no,
-    name: entry.row.name,
-    program_code: entry.row.program_code,
-    program_name: entry.row.program_name,
-    region: entry.row.region,
-    town: entry.row.town,
-    status: entry.row.status,
-    submitted_at: entry.row.submitted_at,
+    application_id: applicationId, application_no: entry.row.application_no,
+    name: entry.row.name, program_code: JOB_PACKAGE, program_name: PROGRAM_NAMES[JOB_PACKAGE],
+    region: entry.row.region, town: entry.row.town, status: entry.row.status, submitted_at: entry.row.submitted_at,
     ai: {
-      final_status: entry.row.ai_status,
-      final_status_label: entry.row.ai_status_label,
-      // 1단계는 서류 적합성, 2단계는 자격 판정이다. 취업패키지의 2단계 자격요건은
-      // 거주지와 나이뿐이라, 도외 주소일 때만 2단계가 무너진다.
-      stage1_status: isSavings
-        ? entry.row.ai_status === 'FAIL' && !overIncome
-          ? 'FAIL'
-          : 'PASS'
-        : entry.row.ai_status,
-      stage2_status: isSavings ? (overIncome ? 'FAIL' : entry.row.ai_status) : outOfRegion ? 'FAIL' : 'PASS',
-      recommended_action:
-        entry.row.ai_status === 'PASS'
-          ? '자동 승인'
-          : entry.row.ai_status === 'FAIL'
-            ? isSavings
-              ? '반려 검토'
-              : '7일 내 서류 보완 안내'
-            : '담당자 확인 필요',
+      final_status: entry.row.ai_status, final_status_label: entry.row.ai_status_label,
+      stage1_status: entry.row.ai_status, stage2_status: outOfRegion ? 'FAIL' : 'PASS',
+      recommended_action: entry.row.ai_status === 'PASS' ? '자동 승인' : entry.row.ai_status === 'FAIL' ? '7일 내 서류 보완 안내' : '담당자 확인 필요',
       reasons: entry.reasons,
     },
-    score_sheet: {
-      items,
-      total: entry.scored?.total ?? 0,
-      max_total: 100,
-      income_percent: entry.scored?.incomePercent ?? null,
-      income_over_limit: overIncome,
-      incomplete: false,
-      tiebreak: entry.tiebreak,
-      notes: ['목업 데이터입니다 — 실제 제출 서류에서 판독한 값이 아닙니다.'],
-    },
-    selection: isSavings ? 'scored' : 'first_come',
-    subsidy: isSavings ? null : subsidyEstimate(entry),
-    supplement: supplementView(entry),
-    documents: entry.docs.map((d, i) => toOfficerDocument(entry, d, i)),
-    forms: [],
-    eligibility,
-    exclusions,
-    decision: {
-      decision: entry.row.decision,
-      label: entry.row.decision_label,
-      memo: entry.memo,
-      officer_role: entry.row.officer_role,
-      decided_at: entry.decidedAt,
-    },
-    role,
+    subsidy: subsidyEstimate(entry), supplement: supplementView(entry),
+    documents: entry.docs.map((d, i) => toOfficerDocument(entry, d, i)), forms: [],
+    eligibility: [
+      { key: 'residence', label: '① 거주지 — 전북특별자치도 내 거주 청년', ok: !outOfRegion, basis: '주민등록초본 주소 ' + (abstract?.fields['주소'] ?? entry.address) },
+      { key: 'age', label: '② 연령 — 2026년 기준 18~39세 (1987.1.1. ~ 2008.12.31. 출생)', ok: true, basis: '생년월일 ' + entry.birth },
+      { key: 'doc_period', label: '③ 서류 인정 기간 — 2026. 1. 1. 이후 발급·결제분', ok: stale.length === 0, basis: stale.length === 0 ? '제출 서류의 기준 날짜가 모두 인정 기간 안입니다.' : stale.map((d) => d.label + ': ' + d.dateField + ' ' + d.fields[d.dateField]).join(' · ') },
+    ],
+    exclusions: [{ label: '동일 사업 중복 신청', answer: '해당 없음', ok: true, source: '엔진 2단계 (행복e음·일모아 조회 자리 — 데모는 미연동)' }],
+    decision: { decision: entry.row.decision, label: entry.row.decision_label, memo: entry.memo, officer_role: entry.row.officer_role, decided_at: entry.decidedAt },
+    role: roleOf(roleKey),
   }
 }
 

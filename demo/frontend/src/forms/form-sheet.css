@@ -1,0 +1,45 @@
+.form-date {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  justify-content: center;
+}
+
+.form-date input {
+  font: inherit;
+  border: none;
+  border-bottom: 1px dotted #aaa;
+  background: transparent;
+  text-align: center;
+  padding: 1px 2px;
+  color: inherit;
+  -moz-appearance: textfield;
+}
+
+.form-date input::-webkit-outer-spin-button,
+.form-date input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.form-date input:focus {
+  outline: none;
+  border-bottom: 1px solid #0b57d0;
+  background: #f0f6ff;
+}
+
+.form-date__y {
+  width: 3.4em;
+}
+.form-date__m,
+.form-date__d {
+  width: 2.2em;
+}
+
+.form-date__unit {
+  font-size: 12.5px;
+  padding-right: 4px;
+}
+
+
+.form-date input[readonly] { background: #f3f4f6; color: #374151; cursor: not-allowed; }

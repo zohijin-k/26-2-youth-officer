@@ -1,0 +1,250 @@
+/* 신청 플로우 껍데기. 서식 내부 스타일은 forms/form-sheet.css 가 담당한다. */
+
+.flow {
+  width: 940px;
+  margin: 0 auto;
+  padding: 28px 0 96px;
+}
+
+/* Upload uses a fluid shell capped near the default width. */
+.flow--fluid {
+  width: 100%;
+  max-width: calc(940px + 32px);
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+
+.flow__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.flow--fluid .flow__head {
+  flex-wrap: wrap;
+}
+
+/* 사업 선택 화면은 단계 표시가 없어 제목 아래에 선을 직접 긋는다 */
+.flow__head--solo {
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--brand);
+}
+
+.flow__head h1 {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.flow__sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 신청 단계는 상단 바 아래 한 줄로 표시한다. */
+.flow.flow--active { padding-top: 12px; }
+.flow__overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin-bottom: 12px; }
+.flow__head--compact { align-items: baseline; justify-content: flex-start; flex-shrink: 0; gap: 10px; margin: 0; }
+.flow__submission-order { color: var(--workspace-muted, #66758b); font-size: 11px; white-space: nowrap; }
+.flow__stages { --stage-node-size: 20px; --stage-node-top: 3px; display: flex; width: 100%; margin: 0 auto; padding: 0; list-style: none; }
+.flow__stages li { position: relative; display: flex; flex: 1; min-width: 0; }
+.flow__stages li:not(:last-child)::after { position: absolute; top: calc(var(--stage-node-top) + var(--stage-node-size) / 2 - 0.5px); left: 50%; width: 100%; height: 1px; background: #d8e0ea; content: ''; pointer-events: none; }
+.flow__stages button { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; min-height: 68px; padding: var(--stage-node-top) 4px 5px; border: 0; border-radius: 4px; background: transparent; color: #626f82; font: inherit; text-align: center; cursor: default; }
+.flow__stage-no { position: relative; display: grid; flex-shrink: 0; place-items: center; width: var(--stage-node-size); height: var(--stage-node-size); border: 1px solid #d2dbe6; border-radius: 50%; background: #e9eef4; line-height: 1; }
+.flow__stage-copy { display: grid; gap: 1px; width: 100%; min-width: 0; }
+.flow__stage-caption { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 5px; color: #637186; font-size: 11px; line-height: 14px; }
+.flow__stage-caption > span:first-child { white-space: nowrap; }
+.flow__stage-label { font-size: 14px; font-weight: 600; line-height: 20px; word-break: keep-all; }
+.flow__stage-status { overflow-wrap: anywhere; }
+.flow__stages button[aria-disabled="false"] { cursor: pointer; }
+.flow__stages button[aria-disabled="false"]:hover .flow__stage-label { color: var(--workspace-accent, #315dcc); text-decoration: underline; text-underline-offset: 3px; }
+.flow__stages button:focus-visible { outline: 2px solid var(--workspace-accent, #315dcc); outline-offset: 2px; }
+.flow__stage-check { color: #fff; font-size: 12px; font-weight: 700; }
+.flow__stages li.is-complete::after { background: #b6c2d2; }
+.flow__stages li.is-complete .flow__stage-no { border-color: #8e9db0; background: #8e9db0; }
+.flow__stages li.is-complete .flow__stage-label { color: #45566e; }
+.flow__stages li.is-current .flow__stage-no { border: 2px solid var(--workspace-accent, #315dcc); background: #fff; box-shadow: 0 0 0 3px #e7edfb; }
+.flow__stages li.is-current .flow__stage-no::after { width: 6px; height: 6px; border-radius: 50%; background: var(--workspace-accent, #315dcc); content: ''; }
+.flow__stages li.is-current .flow__stage-caption { color: #496ab5; }
+.flow__stages li.is-current .flow__stage-label { color: var(--workspace-accent, #315dcc); font-weight: 700; }
+@media (max-width: 1000px) {
+}
+@media (max-width: 800px) {
+}
+@media (max-width: 580px) {
+  .flow__stages button { padding-right: 3px; padding-left: 3px; }
+  .flow__stage-label { font-size: 12px; line-height: 18px; }
+  .flow__stage-caption { min-height: 28px; align-content: flex-start; gap: 0 3px; font-size: 10px; }
+}
+
+.flow__mypage-return { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+
+@media (max-width: 960px) {
+  .flow { width: auto; max-width: 940px; margin: 0 16px; }
+}
+
+.flow__gap {
+  height: 28px;
+}
+
+.flow__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+/* 이전 버튼은 왼쪽, 다음으로 가는 버튼은 오른쪽 */
+.flow__actions > .btn:not(.btn--primary):first-child {
+  margin-right: auto;
+}
+
+/* Applicant flow buttons. */
+.btn {
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 20px;
+  border: 1px solid #888;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  cursor: pointer;
+  transition: background var(--ease), border-color var(--ease), transform var(--ease);
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.btn--primary {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: #16294d;
+  color: #fff;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 신청 화면 버튼 */
+.flow .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 20px;
+  border: 1px solid #c3cad5;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: #2b3442;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--ease), border-color var(--ease), color var(--ease);
+}
+
+.flow .btn:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: #f7f9fd;
+}
+
+.flow .btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-tint);
+  border-color: var(--brand);
+}
+
+.flow .btn--primary {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+}
+
+.flow .btn--primary:hover:not(:disabled) {
+  background: #16294d;
+  border-color: #16294d;
+  color: #fff;
+}
+
+.app-shell--applicant .flow .flow__actions > .btn--primary:not(:disabled) { border-color: var(--workspace-accent); background: var(--workspace-accent); }
+.app-shell--applicant .flow .flow__actions > .btn--primary:hover:not(:disabled) { border-color: #284fb5; background: #284fb5; }
+
+.flow .btn:disabled {
+  cursor: not-allowed;
+  border-color: var(--border);
+  background: #eef0f4;
+  color: #848c98;
+}
+
+.flow .btn--small {
+  min-height: 32px;
+  font-size: 12.5px;
+  padding: 0 12px;
+}
+
+.flow-block {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  margin-top: 18px;
+}
+
+.flow-block p {
+  margin: 6px 0 0;
+}
+
+/* 자가진단에서 걸린 경우 — 사유와 대안을 같이 준다 */
+.flow-block--stop {
+  border-color: color-mix(in srgb, var(--fail) 35%, transparent);
+  background: var(--fail-tint);
+}
+
+/* 본인인증 없이 서류 단계로 건너뛴 경우 */
+.flow-block--warn {
+  border-color: color-mix(in srgb, #b45309 35%, transparent);
+  background: #fffbeb;
+  margin: 0 0 16px;
+}
+
+.flow-block--ok {
+  border-color: color-mix(in srgb, var(--success) 35%, transparent);
+  background: var(--success-tint);
+}
+
+.flow-alt {
+  background: #fff;
+  border-left: 3px solid var(--brand);
+  border-radius: 0 6px 6px 0;
+  padding: 8px 12px;
+}
+
+.flow-error {
+  color: var(--fail);
+  text-align: center;
+  padding: 40px;
+}
+
+/* 제출 완료 안내의 다음 절차 목록 */
+.flow-steps-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+}

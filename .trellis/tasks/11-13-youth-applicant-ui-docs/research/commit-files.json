@@ -1,0 +1,65 @@
+[
+  {
+    "order": 1,
+    "title": "feat: start youth package applications directly",
+    "deleted": [],
+    "modified": [
+      "demo/frontend/src/pages/applicant/ApplyFlow.tsx"
+    ],
+    "added": [],
+    "scope": "Entry/restore/retry/StrictMode and stale response hunks only; retain deletion hunks for commit 2"
+  },
+  {
+    "order": 2,
+    "title": "refactor: remove savings and officer frontend",
+    "deleted": [
+      "demo/frontend/src/components/CriteriaEditor.tsx",
+      "demo/frontend/src/forms/form5-model.ts",
+      "demo/frontend/src/lib/period.ts",
+      "demo/frontend/src/pages/applicant/ProgramPicker.tsx",
+      "demo/frontend/src/pages/applicant/program-picker.css",
+      "demo/frontend/src/pages/officer/ApplicationList.tsx",
+      "demo/frontend/src/pages/officer/DocumentViewer.tsx",
+      "demo/frontend/src/pages/officer/OfficerConsole.tsx",
+      "demo/frontend/src/pages/officer/ReviewDetail.tsx",
+      "demo/frontend/src/pages/officer/ScoreSheet6.tsx",
+      "demo/frontend/src/pages/officer/format.ts",
+      "demo/frontend/src/pages/officer/mock-data.ts",
+      "demo/frontend/src/pages/officer/officer.css"
+    ],
+    "modified": [
+      "demo/frontend/index.html",
+      "demo/frontend/src/App.tsx",
+      "demo/frontend/src/api.ts",
+      "demo/frontend/src/app-shell.css",
+      "demo/frontend/src/components/SignaturePad.tsx",
+      "demo/frontend/src/components/StatusBadge.tsx",
+      "demo/frontend/src/components/skeleton.css",
+      "demo/frontend/src/forms/FormSheet.tsx",
+      "demo/frontend/src/forms/PdfFormsWorkspace.tsx",
+      "demo/frontend/src/forms/consent-model.ts",
+      "demo/frontend/src/forms/form-field-bindings.ts",
+      "demo/frontend/src/forms/form-sheet.css",
+      "demo/frontend/src/forms/form1-model.ts",
+      "demo/frontend/src/forms/form2-model.ts",
+      "demo/frontend/src/forms/pdf-forms-workspace.css",
+      "demo/frontend/src/navigation-url.ts",
+      "demo/frontend/src/pages/applicant/ApplyFlow.tsx",
+      "demo/frontend/src/pages/applicant/DocumentUpload.tsx",
+      "demo/frontend/src/pages/applicant/FinalCheck.tsx",
+      "demo/frontend/src/pages/applicant/apply-flow.css"
+    ],
+    "added": [],
+    "scope": "Includes remaining ApplyFlow removal hunks and all required imports/styles/types wiring"
+  },
+  {
+    "order": 3,
+    "title": "docs: describe the youth applicant repository",
+    "deleted": [],
+    "modified": [
+      "README.md"
+    ],
+    "added": [],
+    "scope": "Root README only; no other documentation edits"
+  }
+]

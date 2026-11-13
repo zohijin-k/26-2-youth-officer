@@ -1,0 +1,39 @@
+{
+  "id": "youth-applicant-ui-docs",
+  "name": "youth-applicant-ui-docs",
+  "title": "청년 신청자 화면과 README 정리",
+  "description": "0단계 기준선 이후 청년 취업지원패키지 직접 진입, 담당자·두배적금 프런트 제거, 문서 정리와 전체 재검증을 수행한다.",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-11-13",
+  "completedAt": null,
+  "branch": "feat/youth-applicant-only",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "11-13-youth-applicant-scope",
+  "relatedFiles": [],
+  "notes": "Approved implementation and final verification complete. Await user review; no staging/commits/push/archive. Only README documentation changed; no existing tests/backend/engine/API backend/DB/dependency changes. Final report contains diff stats, per-commit hunk/file groups and final browser/regression evidence.",
+  "meta": {
+    "stage1_approved": true,
+    "font_provenance_confirmed": true,
+    "documentation_allowlist": [
+      "README.md"
+    ],
+    "commit_approved": false,
+    "implementation_complete": true,
+    "final_review_artifact": "/tmp/youth-applicant-final-dtktujkh/review.json",
+    "browser_checks_passed": 18,
+    "final_engine_passed": 1267,
+    "final_backend_passed": 1227,
+    "final_scenario_checks_passed": 1885
+  }
+}

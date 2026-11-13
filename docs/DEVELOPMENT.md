@@ -17,23 +17,10 @@ OCR은 서류 사진이나 PDF에서 글자를 읽는 기술입니다.
 
 ## 저장소와 브랜치
 
-저장소는 GitHub의 `zohijin-k/2026-2-capstone`입니다. 최종 통합본은 `main`이며, 다른 브랜치를 내려받을 필요는 없습니다. 기존 clone은 `git checkout main && git pull`로 갱신합니다. git을 쓰지 않으면 저장소 첫 화면에서 브랜치가 `main`인지 확인하고 Code → Download ZIP으로 받습니다.
+저장소는 GitHub의 `zohijin-k/26-2-youth-officer`입니다. 청년 취업지원패키지 담당자 화면을 다루며, 기준 브랜치는 `main`입니다. 기존 clone은 작업 중인 변경을 확인한 뒤 `git checkout main && git pull`로 갱신합니다. git을 쓰지 않으면 저장소 첫 화면에서 브랜치가 `main`인지 확인하고 Code → Download ZIP으로 받습니다.
 
-브랜치 안내 (2026-11-12 기준, 원격 브랜치 및 `origin/main` 병합 여부):
+이전 통합 저장소의 기능 브랜치 목록은 이 저장소의 브랜치 현황이 아닙니다.
 
-| 브랜치 | 상태 | 알려진 내용 |
-|---|---|---|
-| `main` | 기준 브랜치 | 원격 통합 브랜치 |
-| `feat/applicant-check` | 병합됨 | 신청자 사전 검사 작업 |
-| `feat/engine-v2` | 병합됨 | 엔진 v2 작업 |
-| `feat/job-docs-align` | 미병합 | 취업 서류 판독기 수정. 병합 순서와 충돌 확인 필요 |
-| `feat/job-docs-reader` | 미병합 | 내용 확인 중 |
-| `feat/merge-demo-dashboard` | 미병합 | 브랜치 이름 기준 데모·대시보드 병합 작업 |
-| `feat/own-default` | 병합됨 | own 기본 선택 작업 |
-| `feat/own-fix` | 병합됨 | own 수정 작업 |
-| `feat/own-ocr` | 병합됨 | 자체 OCR 작업 |
-
-상태는 `git branch -r`과 `git branch -r --merged origin/main` 결과에 맞췄습니다. 원격에 없는 브랜치는 표에 넣지 않았습니다.
 ## 협업 규칙
 
 1. 작업 전 `main`을 최신으로 받습니다: `git checkout main && git pull`.
@@ -47,7 +34,7 @@ OCR은 서류 사진이나 PDF에서 글자를 읽는 기술입니다.
 
 | 경로 | 내용 |
 |---|---|
-| [`demo/`](../demo/README.md) | 신청자·담당자 데모, FastAPI(Python 웹 API 도구) 백엔드, React(화면 구성 라이브러리) 화면, 시나리오 확인 스크립트 |
+| [`demo/`](../demo/README.md) | 취업지원패키지 담당자 데모, FastAPI(Python 웹 API 도구) 백엔드, React(화면 구성 라이브러리) 화면, 시나리오 확인 스크립트 |
 | [`engine/`](../engine/README.md) | 기존 규칙 판정 엔진. 데모가 서류·자격 판정 파이프라인으로 사용합니다. |
 | [`engine_v2/`](../engine_v2/README.md) | OCR 파이프라인·서류 추출기·분류기·평가 도구. `own` 모델 파일은 `models/`에 내려받으며 커밋하지 않습니다. |
 | [`engine_v2/pipeline/ocr/`](../engine_v2/pipeline/ocr/) | OCR 공통 인터페이스와 엔진별 모듈 (`own.py` 포함) |
@@ -58,44 +45,42 @@ OCR은 서류 사진이나 PDF에서 글자를 읽는 기술입니다.
 | [`docs/archive/`](archive/) | 옛 기록 보관 문서 |
 | [`docs/`](./) | 기획·계획, 개발, 데모 환경 문서 |
 | [`.trellis/`](../.trellis/workflow.md), [`.claude/`](../.claude/), [`AGENTS.md`](../AGENTS.md) | 작업 흐름, 에이전트 설정, 저장소 작업 지침 |
-| `engine_v2/data/private/` | 실서류의 로컬 내부 평가용 보관 위치. 저장소에 커밋하지 않습니다. |
+| `engine_v2/data/private/` | 엔진 도구의 기본 데이터 경로 (gitignore). 이 저장소의 시험에는 합성 데이터만 사용합니다. |
 
 `demo_run.py`는 기존 `engine/` 단독 실행 예제입니다. 시스템 전체는 데모 백엔드와 프론트엔드를 실행합니다.
 
 ## 개발 환경과 실행
 
-Python 3.12 이상, Node.js 20 이상이 필요합니다. macOS와 Linux에서 백엔드·프론트엔드를 실행할 수 있습니다. 데모 로컬 OCR은 macOS를 포함한 모든 환경에서 own이 기본이므로 macOS에서도 `python engine_v2/tools/fetch_own_models.py`로 모델을 설치해야 합니다.
+이번에 검증한 환경은 **WSL2 Ubuntu 24.04.5 LTS · Python 3.12.3 · Node 22.23.4 · npm 10.9.9**입니다. Python 3.12 이상, Node 22.13 이상을 사용합니다. Windows 네이티브와 macOS는 이번에 검증하지 않았습니다. 데모 로컬 OCR은 own이 기본이며 macOS에서도 모델 설치가 필요합니다.
 
-저장소 루트에서 설치하고 시연 샘플을 생성합니다.
+저장소 루트에서 설치합니다.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r demo/backend/requirements.txt
-python -m pip install -r engine_v2/requirements.txt
-python engine_v2/tools/fetch_own_models.py  # 모델은 저장소에 커밋하지 않음
+python -m pip install -r demo/backend/requirements.txt -r engine_v2/requirements.txt
+python -m engine_v2.tools.fetch_own_models
 cd demo/frontend
-npm install
+npm ci
 cd ../..
-python -m demo.fixtures.make_samples
 ```
-
-샘플은 가상 값으로 만든 PDF이며 `demo/fixtures/samples/`에 생성됩니다. 시나리오 확인 스크립트는 폴더가 없을 때 샘플을 자동 생성합니다.
 
 백엔드와 프론트엔드를 별도 터미널에서 실행합니다.
 
 ```bash
-# 터미널 1 — 저장소 루트
-uvicorn demo.backend.main:app --reload --port 8000
+# 터미널 1 — 저장소 루트, 가상환경 활성화 후
+python -m uvicorn demo.backend.main:app --reload --port 8000
 ```
 
 ```bash
-# 터미널 2
+# 터미널 2 — 저장소 루트에서
 cd demo/frontend
 npm run dev
 ```
 
-브라우저에서 <http://localhost:5173>을 엽니다. FastAPI 문서는 <http://localhost:8000/docs>입니다. 시연 전 데이터를 초기화할 때는 저장소 루트에서 `python -m demo.backend.reset`을 실행합니다.
+<http://localhost:5173>에서 바로 취업지원패키지 담당자 목록을 엽니다. 기존 합성 목업은 `?mock=1`, 실제 API 목록만 확인하려면 `?mock=0`을 사용합니다. 목업은 DB를 채우지 않으며 처리 결과는 새로고침하면 초기화됩니다. FastAPI 문서는 <http://localhost:8000/docs>입니다.
+
+시나리오 시험용 가상 PDF는 `demo/fixtures/samples/`가 없으면 시험에서 자동 생성합니다. 담당자 합성 목업 시연에는 이 PDF 생성이나 DB 초기화가 필요하지 않습니다. 개발 중 DB·업로드 저장소 초기화가 필요하면 서버를 멈추고 `python -m demo.backend.reset --dry-run`으로 삭제 대상을 먼저 확인합니다.
 
 ## OCR 판독 설정
 
@@ -117,7 +102,7 @@ python -m engine_v2.tools.ocr_bench "<파일 경로>" --doc resident_abstract --
 
 own의 현재 평가는 합성 서류 3종(주민등록초본·납부확인서·자격득실확인서 형태), 열화 조건과 ±2도 이내 회전을 포함합니다. 90도·180도 방향 보정은 없습니다. 기존 문서에서 보고한 실서류 관찰은 주민등록초본과 4대보험 가입내역에 한정되며 공개 안내에서는 식별정보와 수치 판독 결과를 공개하지 않습니다. 합성 자료 결과는 실제 서류 전반의 성능을 보장하지 않습니다.
 
-자체 OCR 모델은 공개 사전학습 PP-OCRv5 mobile 검출·한국어 인식 모델의 ONNX 변환본이며, 모델을 직접 사전학습했다는 의미는 아닙니다. 데모 기본 연결과 2단계 학습은 진행 중입니다. 출처·라이선스, 모델 설치와 평가 방법은 [own OCR 설명](../engine_v2/docs/own-ocr.md)에 있습니다.
+자체 OCR 모델은 공개 사전학습 PP-OCRv5 mobile 검출·한국어 인식 모델의 ONNX 변환본이며, 모델을 직접 사전학습했다는 의미는 아닙니다. own은 데모 로컬 OCR의 기본 엔진이며, 분류 실험 모델은 데모 판정에 연결되어 있지 않습니다. 출처·라이선스, 모델 설치와 평가 방법은 [own OCR 설명](../engine_v2/docs/own-ocr.md)에 있습니다.
 
 ## 확인 및 테스트
 
@@ -125,16 +110,19 @@ own의 현재 평가는 합성 서류 3종(주민등록초본·납부확인서·
 
 ```bash
 for f in demo/backend/tests/run_p*_scenarios.py; do echo "== $f"; python -m demo.backend.tests.$(basename "$f" .py) || echo "FAILED $f"; done
-python -m pytest engine_v2/tests -q
+python -m pip install pytest
+python -m pytest engine_v2/tests -q -ra
+python -m pytest demo/backend/tests -q -ra
 ```
 
-현재 실행 확인 결과 `engine_v2/tests`는 260개 통과, 3개 건너뜀입니다. 맥에는 합성 글꼴이 없어 일부 글꼴 의존 테스트가 건너뛰어질 수 있습니다. 시나리오 스크립트 18개를 실행해 1,776개 확인이 통과했습니다. 위 반복문은 한 시나리오가 실패해도 나머지를 계속 실행합니다. 파일 이름 순서상 P11\~P15가 P2\~P9보다 먼저 실행되므로, 앞에서 멈추면 뒤 시나리오 결과를 확인할 수 없습니다.
+`e449c55`의 WSL2 기준선은 엔진 1,264개 통과·합성 글꼴 누락 3개 건너뜀, 백엔드 1,227개 통과입니다. 시나리오 18개는 확인 1,885개 통과·실패 0이며 P14의 원본 서식 8개 검증도 통과했습니다. 프론트엔드는 lint 경고 1개·build 통과입니다. Apple Vision 관련 시험 건너뜀은 없고 `ocrmac` 설치는 Darwin 조건에 따라 제외됩니다. 위 반복문은 한 시나리오가 실패해도 나머지를 계속 실행합니다.
 
 프론트엔드 타입 검사·린트·빌드는 다음과 같습니다.
 
 ```bash
 cd demo/frontend
-npx tsc -b && npx oxlint && npx vite build
+npm run lint
+npm run build
 ```
 
 하위 폴더별 기능과 추가 실행 방법은 [데모](../demo/README.md), [기존 엔진](../engine/README.md), [엔진 v2](../engine_v2/README.md), 대시보드 코드와 [대시보드 옛 안내](archive/dashboard-README.md)를 확인합니다.
@@ -143,9 +131,9 @@ npx tsc -b && npx oxlint && npx vite build
 
 ## 지켜야 할 원칙
 
-- 실제 서류는 로컬 내부 평가용 보관 위치에만 두고 저장소에 커밋하지 않습니다.
+- 이 저장소의 시연·시험에는 합성 데이터만 사용합니다. 모델, 생성 문서, 업로드 원본과 DB는 커밋하지 않습니다.
 - 판정은 공고문에 근거한 규칙으로 합니다. OCR·모델은 문서를 읽는 데 씁니다.
-- 신청자 화면에 배점·내부 판단 정보·서류 속 타인의 이름을 노출하지 않습니다.
+- 신청자 화면은 없지만 신청 API와 판정 저장·DB 모델은 보존합니다. 신청자용 API의 배점·내부 판단 정보 비노출 시험도 유지합니다.
 - 파일 이름이 아니라 서류 내용으로 종류와 판정 근거를 판단합니다.
 - 담당자는 신청자가 올린 원본 서류를 내려받지 않고 화면으로만 확인합니다. 신청자는 본인이 작성한 서식만 내려받을 수 있으며 P4 시나리오가 이 경계를 확인합니다.
 - 값을 출력하는 점검 도구는 이름·주소·번호를 가립니다.

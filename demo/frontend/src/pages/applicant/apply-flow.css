@@ -6,9 +6,7 @@
   padding: 28px 0 96px;
 }
 
-/* Upload uses a fluid shell capped near the default 940px width. Savings forms
- * use the wider shell below; their PDF background and input coordinates scale
- * together inside the document viewer rather than reflowing document cells. */
+/* Upload uses a fluid shell capped near the default width. */
 .flow--fluid {
   width: 100%;
   max-width: calc(940px + 32px);
@@ -16,16 +14,6 @@
   padding-right: 16px;
 }
 
-/* The document keeps its original coordinates; only its surrounding workspace grows. */
-.flow.flow--forms {
-  --forms-sidebar-width: 244px;
-  --forms-workspace-gap: 20px;
-  width: calc(100% - 32px);
-  max-width: 1160px;
-  margin: 0 auto;
-}
-
-.flow--forms .flow__head { flex-wrap: wrap; }
 
 .flow__head {
   display: flex;
@@ -60,25 +48,9 @@
 /* 신청 단계는 상단 바 아래 한 줄로 표시한다. */
 .flow.flow--active { padding-top: 12px; }
 .flow__overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin-bottom: 12px; }
-.flow--forms .flow__overview { grid-template-columns: var(--forms-sidebar-width) minmax(0, 1fr); column-gap: var(--forms-workspace-gap); align-items: center; }
-.flow--forms .flow__head--compact h1 { text-wrap: balance; word-break: keep-all; }
 .flow__head--compact { align-items: baseline; justify-content: flex-start; flex-shrink: 0; gap: 10px; margin: 0; }
 .flow__submission-order { color: var(--workspace-muted, #66758b); font-size: 11px; white-space: nowrap; }
 .flow__stages { --stage-node-size: 20px; --stage-node-top: 3px; display: flex; width: 100%; margin: 0 auto; padding: 0; list-style: none; }
-.flow--forms .flow__stages { position: relative; width: 100%; margin: 0; }
-.flow--forms .flow__stages::before { position: absolute; z-index: 0; top: calc(var(--stage-node-top) + var(--stage-node-size) / 2 - 0.5px); right: var(--stage-edge-center); left: var(--stage-edge-center); height: 1px; background: #d8e0ea; content: ''; pointer-events: none; }
-.flow--forms .flow__stages { --stage-edge-inset: 16px; --stage-edge-center: calc(var(--stage-edge-inset) + var(--stage-node-size) / 2); --stage-edge-column: calc(100% / 6 + var(--stage-edge-center) * 2 / 3); display: grid; grid-template-columns: var(--stage-edge-column) minmax(0, 1fr) minmax(0, 1fr) var(--stage-edge-column); }
-.flow--forms .flow__stages li:first-child button { align-items: flex-start; padding-left: var(--stage-edge-inset); padding-right: 0; }
-.flow--forms .flow__stages li:last-child button { align-items: flex-end; padding-left: 0; padding-right: var(--stage-edge-inset); }
-.flow--forms .flow__stages li:first-child .flow__stage-copy { text-align: left; }
-.flow--forms .flow__stages li:last-child .flow__stage-copy { text-align: right; }
-.flow--forms .flow__stages li:first-child .flow__stage-caption { justify-content: flex-start; }
-.flow--forms .flow__stages li:last-child .flow__stage-caption { justify-content: flex-end; }
-.flow--forms .flow__stages li:nth-child(2) .flow__stage-copy { align-self: flex-end; width: calc(50% + var(--stage-node-size) / 2); text-align: left; }
-.flow--forms .flow__stages li:nth-child(3) .flow__stage-copy { align-self: flex-start; width: calc(50% + var(--stage-node-size) / 2); text-align: right; }
-.flow--forms .flow__stages li:nth-child(2) .flow__stage-caption { justify-content: flex-start; }
-.flow--forms .flow__stages li:nth-child(3) .flow__stage-caption { justify-content: flex-end; }
-.flow--forms .flow__stages li:first-child::after { left: var(--stage-edge-center); width: calc(200% - var(--stage-node-size) - var(--stage-edge-inset) * 2); }
 .flow__stages li { position: relative; display: flex; flex: 1; min-width: 0; }
 .flow__stages li:not(:last-child)::after { position: absolute; top: calc(var(--stage-node-top) + var(--stage-node-size) / 2 - 0.5px); left: 50%; width: 100%; height: 1px; background: #d8e0ea; content: ''; pointer-events: none; }
 .flow__stages button { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; min-height: 68px; padding: var(--stage-node-top) 4px 5px; border: 0; border-radius: 4px; background: transparent; color: #626f82; font: inherit; text-align: center; cursor: default; }
@@ -100,16 +72,10 @@
 .flow__stages li.is-current .flow__stage-caption { color: #496ab5; }
 .flow__stages li.is-current .flow__stage-label { color: var(--workspace-accent, #315dcc); font-weight: 700; }
 @media (max-width: 1000px) {
-  .flow.flow--forms { --forms-sidebar-width: 218px; --forms-workspace-gap: 16px; }
 }
 @media (max-width: 800px) {
-  .flow--forms .flow__overview { grid-template-columns: minmax(0, 1fr); }
-  .flow--forms .flow__stages { width: 100%; margin: 0 auto; }
 }
 @media (max-width: 580px) {
-  .flow--forms .flow__stages { --stage-edge-inset: 12px; }
-  .flow--forms .flow__stages li:nth-child(2) .flow__stage-copy,
-  .flow--forms .flow__stages li:nth-child(3) .flow__stage-copy { width: 100%; }
   .flow__stages button { padding-right: 3px; padding-left: 3px; }
   .flow__stage-label { font-size: 12px; line-height: 18px; }
   .flow__stage-caption { min-height: 28px; align-content: flex-start; gap: 0 3px; font-size: 10px; }
@@ -139,8 +105,7 @@
   margin-right: auto;
 }
 
-/* 버튼 공통. 담당자 화면은 officer.css의 .btn을 따로 쓴다 — 아래 기본값은 그쪽에도
-   적용되던 값이라 그대로 두고, 신청 화면 버튼은 .flow 안에서 다시 정한다. */
+/* Applicant flow buttons. */
 .btn {
   font: inherit;
   font-size: 14px;

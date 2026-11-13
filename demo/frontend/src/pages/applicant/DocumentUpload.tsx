@@ -1,10 +1,9 @@
 /**
  * 서류 업로드 · 즉시 판정 (P2).
  *
- * 두배적금은 보완 요청이 없는 사업이다. 제출한 뒤에 미비를 알려주면 이미 늦다.
+ * 제출 전에 서류 상태를 확인하고 필요한 내용을 보완할 수 있도록 안내한다.
  * 그래서 이 화면의 전부는 "올리는 순간 알려준다"에 걸려 있다.
  *
- *   근로유형 선택 → 본인에게 필요한 서류만 남는다 (R3.2)
  *   슬롯마다  [발급처 바로가기] [발급일 직접 입력] → [파일 업로드]
  *            발급일 입력을 받는 서류는 날짜를 다 적어야 파일을 고를 수 있다 (2차 검증의 기준값)
  *   업로드 즉시 확인 안내 + 해결 방법 + 재업로드 (R2.1·R2.2)
@@ -16,10 +15,8 @@ import {
   deleteDocument,
   fetchChecklist,
   fetchInterviewFormFileOptions,
-  putDocContext,
   uploadDocument,
   type Checklist,
-  type DocContext,
   type DocRequirementRow,
   type UploadedDocument,
 } from '../../api.ts'
@@ -33,7 +30,6 @@ import { DateTriple } from '../../forms/FormSheet.tsx'
 import { EMPTY_YMD, isCompleteYMD, ymdToISO, type YMD } from '../../forms/ymd.ts'
 import './document-upload.css'
 
-const WORKPLACE_COUNTS = ['1개', '2개', '3개'] as const
 
 /** 판독 계층·신뢰도·소요시간은 신청자에게 의미가 없다. 시연에서 보여줄 때만 `?debug=1`. */
 const SHOW_TECH = new URLSearchParams(window.location.search).has('debug')
@@ -422,40 +418,6 @@ export default function DocumentUpload({
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
   }, [applicationId, onProgress])
 
-  const context = checklist?.context ?? {}
-
-  /** 근로유형 등이 바뀌면 서버가 다시 조립한 체크리스트로 통째로 갈아끼운다. */
-  const changeContext = async (patch: Partial<DocContext>) => {
-    const proofRows = checklist?.items.filter((item) =>
-      item.slot_key.startsWith('work_proof') || item.slot_key === 'labor_contract'
-    ) ?? []
-    const changesWorkTypeOrCount = (['work_category', 'workplace_count'] as const)
-      .some((key) => patch[key] !== undefined && patch[key] !== context[key])
-    const changesAdminContract = patch.admin_fixed_term !== undefined &&
-      patch.admin_fixed_term !== context.admin_fixed_term
-    const proofDocs = proofRows
-      .filter((item) => changesWorkTypeOrCount || (changesAdminContract && item.slot_key === 'labor_contract'))
-      .flatMap((item) => item.documents)
-    if (proofDocs.length > 0 &&
-      !window.confirm('올리신 근로확인서류가 빠집니다. 바꾸시겠어요?')) return
-
-    setError('')
-    setBusySlot('work-context')
-    try {
-      if (proofDocs.length > 0) {
-        for (const doc of proofDocs) await deleteDocument(applicationId, doc.document_id)
-      }
-      const next = await putDocContext(applicationId, { ...context, ...patch })
-      setChecklist(next)
-      onProgress(next.upload_done, next.upload_total)
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e))
-      await refresh()
-    } finally {
-      setBusySlot('')
-    }
-  }
-
   const refresh = () => fetchChecklist(applicationId).then((next) => {
     setChecklist(next)
     onProgress(next.upload_done, next.upload_total)
@@ -494,72 +456,11 @@ export default function DocumentUpload({
 
   const uploadItems = checklist.items.filter((i) => i.upload)
   const onlineItems = checklist.items.filter((i) => !i.upload)
-  const hasAdminConsent = checklist.items.some((i) => i.slot_key === 'admin_info_consent')
 
   return (
     <div className="dupload">
-      {/* 근로확인서류가 있는 사업에서만 근로유형을 묻는다. 취업패키지는 근로요건이
-          없어 이 구획 자체가 뜨지 않는다. */}
-      {checklist.program.asks_work_category && (
-        <section className="dupload__context">
-          <h3>근로유형</h3>
-          <p className="dupload__hint">
-            근로확인서류는 5종 중 1종만 내면 됩니다. 아래에서 고르면 본인에게 필요한 서류만 남습니다.
-          </p>
-          <fieldset className="dupload__worktypes" disabled={busySlot === 'work-context'}>
-            <legend>근로유형 선택</legend>
-            {checklist.work_categories.map((category, index) => {
-              const id = `work-category-${applicationId}-${index}`
-              return (
-                <label key={category} htmlFor={id}>
-                  <input
-                    id={id}
-                    type="radio"
-                    name={`work-category-${applicationId}`}
-                    value={category}
-                    checked={context.work_category === category}
-                    onChange={() => void changeContext({ work_category: category })}
-                  />
-                  <span>{category}</span>
-                </label>
-              )
-            })}
-          </fieldset>
-          <div className="dupload__opts">
-            {context.work_category === '직장가입자' && (
-              <label>
-                <input
-                  type="checkbox"
-                  checked={!!context.admin_fixed_term}
-                  disabled={busySlot === 'work-context'}
-                  onChange={(e) => void changeContext({ admin_fixed_term: e.target.checked })}
-                />
-                행정기관 기간제 근로자입니다 (근로계약서 사본 추가)
-              </label>
-            )}
-            <label>
-              근무 사업장 수
-              <select
-                value={`${context.workplace_count ?? 1}개`}
-                disabled={busySlot === 'work-context'}
-                onChange={(e) => void changeContext({ workplace_count: Number(e.target.value[0]) })}
-              >
-                {WORKPLACE_COUNTS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </section>
-      )}
-
       <div className="dupload__progress">
         제출 서류 <strong>{checklist.upload_done}</strong> / {checklist.upload_total}
-        {checklist.program.asks_work_category && !context.work_category && (
-          <span className="dupload__progress-hint">근로유형을 고르면 서류가 1종 추가됩니다.</span>
-        )}
         {checklist.program.has_subsidy_items && (
           <span className="dupload__progress-hint">
             고르신 지원 항목에 따라 서류가 늘고 줍니다. 항목을 바꾸면 이 목록도 바뀝니다.
@@ -590,21 +491,15 @@ export default function DocumentUpload({
         ))}
       </ul>
 
-      {(onlineItems.length > 0 || hasAdminConsent) && (
+      {onlineItems.length > 0 && (
         <section className="dupload__online">
           <h3>업로드하지 않아도 되는 서류</h3>
           <ul>
-            {onlineItems.filter((i) => i.slot_key !== 'admin_info_consent').map((i) => (
+            {onlineItems.map((i) => (
               <li key={i.slot_key}>
                 <strong>{i.label}</strong> — {i.fulfilled_by}(으)로 대체되었습니다.
               </li>
             ))}
-            {hasAdminConsent && (
-              <li>
-                <strong>행정정보 공동이용 사전동의서 (서식5)</strong>
-                {' — '}{context.paper_forms?.['서식5'] ? '스캔본을 제출합니다.' : '온라인 작성 동의와 서명을 제출합니다.'}
-              </li>
-            )}
           </ul>
         </section>
       )}

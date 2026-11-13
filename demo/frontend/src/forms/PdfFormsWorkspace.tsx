@@ -1,21 +1,14 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 
 import {
   fetchFormLayout,
   fetchApplicantForms,
-  fetchChecklist,
-  putDocContext,
-  deleteDocument,
   fetchOriginalHwpOptions,
   fetchSubsidyItems,
   saveSubsidyItems,
-  uploadSignatureScan,
-  deleteSignatureScan,
   type FormFieldLayout,
   type FormLayout,
   type Identity,
-  type Program,
   type SubsidySelection,
   type SelfCheckResult,
   type SubsidyState,
@@ -26,30 +19,23 @@ import type { ConsentValue } from './consent-model.ts'
 import { isValidEmail, normalizeEmail } from './email.ts'
 import { formatPhone, isValidPhone, phoneCursorPosition } from './phone.ts'
 import { EMPTY_FORM1, type Form1Value } from './form1-model.ts'
-import { JOB_PACKAGE_SELF_CHECK_ITEMS, SELF_CHECK_ITEMS, type SelfCheckAnswers } from './form2-model.ts'
-import { EMPTY_FORM5, type Form5Value, type SignMode } from './form5-model.ts'
+import { JOB_PACKAGE_SELF_CHECK_ITEMS, type SelfCheckAnswers } from './form2-model.ts'
 import './pdf-forms-workspace.css'
 
 type ActiveForm = { formNo: string; mode: 'edit' | 'preview' }
 
 interface Props {
   applicationId: number
-  program: Program
   identity: Identity | null
   form1: Form1Value
   answers: SelfCheckAnswers
   consent: ConsentValue
-  form5: Form5Value
-  signMode: SignMode
   checkResult: SelfCheckResult | null
   onForm1: (value: Form1Value) => void
   onAnswers: (value: SelfCheckAnswers) => void
   onConsent: (value: ConsentValue) => void
-  onForm5: (value: Form5Value) => void
-  onSignMode: (value: SignMode) => void
   onFlush: () => Promise<void>
   onChangedSubsidy?: (state: SubsidyState) => void
-  onPaperFormsChange?: (paperForms: Record<string, boolean>) => void
   onContinue: () => void
   continuing: boolean
   error: string
@@ -92,38 +78,17 @@ function readForm(form1: Form1Value, key: string): unknown {
   return (form1 as unknown as Record<string, unknown>)[key]
 }
 
-function durationBand(value: Form1Value['transferIn'], basis: string, work: boolean): string {
-  if (!value.y || !value.m || !value.d) return ''
-  const start = new Date(Number(value.y), Number(value.m) - 1, Number(value.d))
-  const end = new Date(`${basis}T00:00:00`)
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return ''
-  let years = end.getFullYear() - start.getFullYear()
-  if (end.getMonth() < start.getMonth() || (end.getMonth() === start.getMonth() && end.getDate() < start.getDate())) years -= 1
-  if (work) return years >= 3 ? '3년 이상' : `${years}년 이상 ~ ${years + 1}년 미만`
-  return years >= 5 ? '5년 이상' : `${years}년 이상 ~ ${years + 1}년 미만`
-}
-
-function requiredKeys(formNo: string, isJob: boolean): string[] {
-  if (formNo === '서식2') return Array.from({ length: 8 }, (_, i) => `self_check.${i + 1}`)
-  if (formNo === '서식1') return [
-    'name', 'birth', 'address', 'mobile', 'email', 'savingPurpose', 'priorJoined',
-    'gender', 'householdType', 'householdSize', 'workType', 'workplaceRegion',
-    'bankName', 'accountNo', 'accountHolder',
-  ]
-  if (formNo === '서식3') return ['consent.privacy', 'consent.uniqueId']
-  if (formNo === '서식4') return ['consent.thirdParty']
-  if (formNo === '서식5') return ['agree', 'signature']
+function requiredKeys(formNo: string): string[] {
   if (formNo === 'job_application') return [
     'name', 'birth', 'address', 'mobile', 'email', 'bankName', 'accountNo', 'job.signature',
   ]
   if (formNo === 'job_consent') return ['consent.privacy', 'consent.thirdParty', 'consent.job.signature']
-  return isJob ? ['self_check.1', 'self_check.2'] : []
+  return ['self_check.1', 'self_check.2']
 }
 
 function fieldGroup(key: string): string {
   if (key.startsWith('self_check.')) return key.split('.').slice(0, 2).join('.')
   if (key.startsWith('consent.')) return key.split('.').slice(0, 2).join('.')
-  if (key.startsWith('agree.')) return 'agree'
   if (key.startsWith('subsidy.')) return key.split('.').slice(0, 2).join('.')
   return key.split('.')[0]
 }
@@ -163,80 +128,45 @@ function DownloadIcon() {
 }
 
 export default function PdfFormsWorkspace({
-  applicationId, program, identity, form1, answers, consent, form5, signMode,
-  checkResult, onForm1, onAnswers, onConsent, onForm5, onSignMode,
-  onFlush, onChangedSubsidy, onPaperFormsChange, onContinue, continuing, error, readOnly = false, onProgress,
+  applicationId, identity, form1, answers, consent,
+  checkResult, onForm1, onAnswers, onConsent,
+  onFlush, onChangedSubsidy, onContinue, continuing, error, readOnly = false, onProgress,
 }: Props) {
-  const isJob = program.has_subsidy_items
-  const inline = program.code === 'double_savings'
   const [formNos, setFormNos] = useState<string[]>([])
   const [layouts, setLayouts] = useState<Record<string, FormLayout>>({})
   const [availableFormCount, setAvailableFormCount] = useState(0)
-  const [paperAllowed, setPaperAllowed] = useState<Record<string, boolean>>({})
-  const [paperForms, setPaperForms] = useState<Record<string, boolean>>({})
   const [active, setActive] = useState<ActiveForm | null>(null)
   const [page, setPage] = useState(0)
   const [localError, setLocalError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [saveNotice, setSaveNotice] = useState<{ message: string; values: unknown[] } | null>(null)
   const [signatureTarget, setSignatureTarget] = useState<string | null>(null)
   const [previewKey, setPreviewKey] = useState(0)
   const [thumbnailVersion, setThumbnailVersion] = useState(0)
-  const [scanVersion, setScanVersion] = useState(0)
   const [selectedItems, setSelectedItems] = useState<string[]>([])
   const [subsidySelections, setSubsidySelections] = useState<SubsidySelection[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
-  const signatureDialogRef = useRef<HTMLDivElement>(null)
-  const signatureTriggerRef = useRef<HTMLButtonElement | null>(null)
-  const signatureFocusReturnRef = useRef<HTMLButtonElement | null>(null)
   const sessionEpoch = useRef(0)
   const pendingOperation = useRef<number | null>(null)
-  const paperFormsChangeRef = useRef(onPaperFormsChange)
   const resetPending = useRef<number | null>(null)
   const [availablePageWidth, setAvailablePageWidth] = useState(794)
-  const selfCheckItems = isJob ? JOB_PACKAGE_SELF_CHECK_ITEMS : SELF_CHECK_ITEMS
-  const draftValues = [form1, answers, consent, form5, signMode]
-  const currentSaveNotice = saveNotice?.values.every((value, index) => value === draftValues[index]) ? saveNotice.message : ''
-
-  useEffect(() => { paperFormsChangeRef.current = onPaperFormsChange }, [onPaperFormsChange])
+  const selfCheckItems = JOB_PACKAGE_SELF_CHECK_ITEMS
 
   useEffect(() => {
     let alive = true
     sessionEpoch.current += 1
     pendingOperation.current = null
-    Promise.all([fetchApplicantForms(applicationId), fetchChecklist(applicationId)])
-      .then(async ([availableForms, checklist]) => {
+    fetchApplicantForms(applicationId)
+      .then(async (availableForms) => {
         const items = await Promise.all(availableForms.map(({ form_no }) => fetchFormLayout(applicationId, form_no)))
-        if (alive) {
-          // Display and initial selection use the same public-number order, not stored IDs.
-          const orderedFormNos = inline
-            ? items.map((layout, index) => {
-                const match = layout.public_form?.match(/^서식\s*([1-9]\d*)$/)
-                const publicNumber = match ? Number(match[1]) : NaN
-                return {
-                  formNo: layout.form_no,
-                  index,
-                  order: Number.isSafeInteger(publicNumber) ? publicNumber : Number.MAX_SAFE_INTEGER,
-                }
-              })
-              .sort((a, b) => a.order - b.order || a.index - b.index)
-              .map(({ formNo }) => formNo)
-            : availableForms.map((item) => item.form_no)
-          setFormNos(orderedFormNos)
-          setLayouts(Object.fromEntries(items.map((item) => [item.form_no, item])))
-          setAvailableFormCount(availableForms.length)
-          setPaperAllowed(checklist.program.paper_forms || {})
-          setPaperForms(checklist.context.paper_forms || {})
-          paperFormsChangeRef.current?.(checklist.context.paper_forms || {})
-          if (inline && orderedFormNos.length > 0) {
-            setActive({ formNo: orderedFormNos[0], mode: readOnly ? 'preview' : 'edit' })
-          }
-        }
+        if (!alive) return
+        setFormNos(availableForms.map((item) => item.form_no))
+        setLayouts(Object.fromEntries(items.map((item) => [item.form_no, item])))
+        setAvailableFormCount(availableForms.length)
       })
       .catch((e: unknown) => {
         if (alive) setLocalError(e instanceof Error ? e.message : String(e))
       })
-    if (isJob) {
+    {
       fetchSubsidyItems(applicationId).then((state) => {
         if (!alive) return
         setSelectedItems(state.selections.map((item) => item.item_type))
@@ -244,50 +174,7 @@ export default function PdfFormsWorkspace({
       }).catch(() => undefined)
     }
     return () => { alive = false; sessionEpoch.current += 1 }
-  }, [applicationId, inline, isJob, program.code, readOnly])
-
-  const signatureOpen = active?.mode === 'edit' && active.formNo === '서식5' && !readOnly && !!signatureTarget
-  useEffect(() => {
-    if (!signatureOpen) return
-    const dialog = signatureDialogRef.current
-    if (!dialog) return
-    const trigger = signatureTriggerRef.current
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const focusable = () => Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), [tabindex="0"]')).filter((item) => item.getClientRects().length > 0)
-    focusable()[0]?.focus()
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        event.stopImmediatePropagation()
-        setSignatureTarget(null)
-      } else if (event.key === 'Tab') {
-        const items = focusable()
-        const first = items[0]
-        const last = items[items.length - 1]
-        if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
-          event.preventDefault()
-          last?.focus()
-        } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
-          event.preventDefault()
-          first?.focus()
-        }
-      }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => {
-      window.removeEventListener('keydown', onKey, true)
-      document.body.style.overflow = previousOverflow
-      signatureFocusReturnRef.current = trigger
-    }
-  }, [signatureOpen])
-
-  useEffect(() => {
-    if (signatureOpen || saving) return
-    const trigger = signatureFocusReturnRef.current
-    signatureFocusReturnRef.current = null
-    if (trigger?.isConnected) trigger.focus()
-  }, [signatureOpen, saving])
+  }, [applicationId])
 
   const runSavedAction = async (action: (isCurrent: () => boolean) => void | Promise<void>, flush = true) => {
     if (pendingOperation.current !== null || continuing) return
@@ -296,7 +183,6 @@ export default function PdfFormsWorkspace({
     pendingOperation.current = epoch
     setSaving(true)
     setLocalError('')
-    setSaveNotice(null)
     try {
       if (!readOnly && flush) await onFlush()
       if (!isCurrent()) return
@@ -312,28 +198,6 @@ export default function PdfFormsWorkspace({
     }
   }
 
-  const changePaperMode = async (formNo: string, next: boolean) => {
-    if (readOnly || saving || continuing) return
-    const hasOnlineContent = formNo === '서식5' ? hasStarted('서식5') : false
-    if (next && hasOnlineContent && !window.confirm('온라인으로 작성한 내용은 제출되지 않습니다. 스캔본 제출로 바꾸시겠어요?')) return
-    await runSavedAction(async (isCurrent) => {
-      if (!next && paperForms[formNo]) {
-        const checklist = await fetchChecklist(applicationId)
-        if (!isCurrent()) return
-        const scan = checklist.items.find((item) => item.slot_key === 'admin_info_consent')?.documents[0]
-        if (scan && !window.confirm('올린 스캔본은 제출되지 않습니다. 온라인 작성으로 바꾸시겠어요?')) return
-        if (scan) await deleteDocument(applicationId, scan.document_id)
-      }
-      const checklist = await fetchChecklist(applicationId)
-      if (!isCurrent()) return
-      await putDocContext(applicationId, { ...checklist.context, paper_forms: { ...(checklist.context.paper_forms || {}), [formNo]: next } })
-      if (!isCurrent()) return
-      setPaperForms((current) => ({ ...current, [formNo]: next }))
-      onPaperFormsChange?.({ ...paperForms, [formNo]: next })
-      setSignatureTarget(null)
-    })
-  }
-
   useEffect(() => {
     const epoch = resetPending.current
     if (epoch === null) return
@@ -341,13 +205,12 @@ export default function PdfFormsWorkspace({
     void onFlush().then(() => {
       if (epoch !== sessionEpoch.current) return
       setThumbnailVersion((version) => version + 1)
-      setSaveNotice({ message: '초기화한 내용을 저장했습니다.', values: [form1, answers, consent, form5, signMode] })
     }).catch((e: unknown) => {
       if (epoch === sessionEpoch.current) setLocalError(e instanceof Error ? e.message : String(e))
     }).finally(() => {
       if (epoch === sessionEpoch.current) { pendingOperation.current = null; setSaving(false) }
     })
-  }, [answers, consent, form1, form5, signMode, onFlush])
+  }, [answers, consent, form1, onFlush])
 
   useEffect(() => {
     const viewport = scrollRef.current
@@ -357,35 +220,26 @@ export default function PdfFormsWorkspace({
     const observer = new ResizeObserver(update)
     observer.observe(viewport)
     return () => observer.disconnect()
-  }, [active, paperForms])
+  }, [active])
 
   const currentLayout = active ? layouts[active.formNo] : undefined
   const pageSize = currentLayout?.page_sizes[page]
-  const pageWidth = Math.min(794, inline ? Math.max(620, availablePageWidth) : availablePageWidth)
+  const pageWidth = Math.min(794, availablePageWidth)
   const scale = pageSize ? pageWidth / pageSize.width : 1
 
   const readChoice = (key: string): boolean => {
     const [group, option] = [fieldGroup(key), key.split('.').slice(-1)[0]]
     if (group.startsWith('self_check.')) return answers[Number(group.split('.')[1])] === option
     if (group === 'consent.privacy') return consent.privacy === option
-    if (group === 'consent.uniqueId') return consent.uniqueId === option
     if (group === 'consent.thirdParty') return consent.thirdParty === option
-    if (group === 'agree') return form5.agree === option
-    if (group === 'monthlyDeposit') return option === '월 10만원'
     if (group.startsWith('subsidy.')) return selectedItems.includes(group.split('.')[1])
-    if (group === 'referralPaths') return form1.referralPaths.some((item) => item.startsWith(option))
-    if (group === 'residencePeriod') return durationBand(form1.transferIn, program.announcement_date, false) === option
-    if (group === 'workPeriod') return durationBand(form1.employedAt, program.announcement_date, true) === option
     return readForm(form1, group) === option
   }
 
   const readText = (key: string): string => {
     if (key === 'birth') return dateText(form1.birth)
     if (key === 'name' && identity) return identity.name
-    if (key === 'phone') return form5.phone || form1.mobile
-    if (key === 'writtenMonth') return String(new Date().getMonth() + 1)
-    if (key === 'writtenDay') return String(new Date().getDate())
-    if (key.startsWith('consent.form') || key.startsWith('consent.job.') && !key.endsWith('signature')) {
+    if (key.startsWith('consent.job.') && !key.endsWith('signature')) {
       const date = new Date()
       if (key.endsWith('.year')) return String(date.getFullYear())
       if (key.endsWith('.month')) return String(date.getMonth() + 1)
@@ -410,7 +264,7 @@ export default function PdfFormsWorkspace({
   }
 
   const requiredItems = (formNo: string): string[] => {
-    const keys = requiredKeys(formNo, isJob)
+    const keys = requiredKeys(formNo)
     for (const rule of layouts[formNo]?.requirements || []) {
       if (rule.kind === 'all_or_none') {
         if (rule.fields.some((field) => truthy(readForm(form1, field)))) keys.push(...rule.fields)
@@ -424,10 +278,7 @@ export default function PdfFormsWorkspace({
   const requirementSatisfied = (key: string): boolean => {
     if (key.startsWith('self_check.')) return !!answers[Number(key.split('.')[1])]
     if (key === 'consent.privacy') return !!consent.privacy
-    if (key === 'consent.uniqueId') return !!consent.uniqueId
     if (key === 'consent.thirdParty') return !!consent.thirdParty
-    if (key === 'agree') return !!form5.agree
-    if (key === 'signature') return signMode === '화면에 서명' ? !!form5.signature : form5.signatureScanUploaded
     if (key === 'ecContact') return isValidPhone(String(readForm(form1, key) || ''))
     if (key === 'email') return isValidEmail(normalizeEmail(String(readForm(form1, key) || '')))
     if (key.endsWith('.signature')) return !!readForm(form1, key)
@@ -453,20 +304,17 @@ export default function PdfFormsWorkspace({
 
   const hasStarted = (formNo: string): boolean => requiredItems(formNo).some(requirementSatisfied)
 
-  const allReady = availableFormCount > 0 && formNos.every((formNo) => !!layouts[formNo] && (paperForms[formNo] || missing(formNo).length === 0)) &&
-    (isJob ? selfCheckItems.every((item) => !!answers[item.no]) : true)
+  const allReady = availableFormCount > 0 && formNos.every((formNo) => !!layouts[formNo] && (missing(formNo).length === 0)) &&
+    selfCheckItems.every((item) => !!answers[item.no])
   const completedFormCount = formNos.filter(
-    (formNo) => !!layouts[formNo] && (paperForms[formNo] || missing(formNo).length === 0),
+    (formNo) => !!layouts[formNo] && (missing(formNo).length === 0),
   ).length
 
   const setText = (key: string, value: string) => {
     if (key === 'name' && identity) return
     if (key === 'birth' && identity) return
     if (key === 'consent.privacy') { onConsent({ ...consent, privacy: value }); return }
-    if (key === 'consent.uniqueId') { onConsent({ ...consent, uniqueId: value }); return }
     if (key === 'consent.thirdParty') { onConsent({ ...consent, thirdParty: value }); return }
-    if (key === 'agree') { onForm5({ ...form5, agree: value }); return }
-    if (key === 'householdSizeCount') value = value.replace(/\D/g, '').slice(0, 2)
     if (key === 'birth' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
       const [y, m, d] = value.split('-')
       onForm1({ ...form1, birth: { y, m: String(Number(m)), d: String(Number(d)) } })
@@ -486,9 +334,7 @@ export default function PdfFormsWorkspace({
       return
     }
     if (group === 'consent.privacy') { onConsent({ ...consent, privacy: checked ? option : '' }); return }
-    if (group === 'consent.uniqueId') { onConsent({ ...consent, uniqueId: checked ? option : '' }); return }
     if (group === 'consent.thirdParty') { onConsent({ ...consent, thirdParty: checked ? option : '' }); return }
-    if (group === 'agree') { onForm5({ ...form5, agree: checked ? option : '' }); return }
     if (group.startsWith('subsidy.')) {
       const itemType = group.split('.')[1]
       void (async () => {
@@ -502,76 +348,19 @@ export default function PdfFormsWorkspace({
       })().catch((e: unknown) => setLocalError(e instanceof Error ? e.message : String(e)))
       return
     }
-    if (group === 'residencePeriod' || group === 'workPeriod') return
-    if (group === 'referralPaths') {
-      const old = form1.referralPaths
-      const value = checked ? [...old, option] : old.filter((item) => !item.startsWith(option))
-      onForm1({ ...form1, referralPaths: value })
-      return
-    }
     const value = readForm(form1, group)
     onForm1({ ...(form1 as unknown as Record<string, unknown>), [group]: checked ? option : value === option ? '' : value } as unknown as Form1Value)
   }
 
   const setSignature = (formNo: string, value: string) => {
-    if (formNo === '서식5') {
-      onForm5({ ...form5, signature: value })
-      return
-    }
     const storeKey = formNo === 'job_consent' ? 'consent.job.signature' : 'job.signature'
     onForm1({ ...(form1 as unknown as Record<string, unknown>), [storeKey]: value } as unknown as Form1Value)
   }
 
   const signatureValue = (formNo: string): string => {
-    if (formNo === '서식5') return form5.signatureScanUploaded
-      ? `/api/applications/${applicationId}/forms/signature-scan.png?v=${scanVersion}`
-      : form5.signature
     const key = formNo === 'job_consent' ? 'consent.job.signature' : 'job.signature'
     const value = readForm(form1, key)
     return typeof value === 'string' ? value : ''
-  }
-
-  const changeSignMode = async (next: SignMode) => {
-    if (readOnly || next === signMode || pendingOperation.current !== null) return
-    const hasSignature = !!form5.signature || form5.signatureScanUploaded
-    if (hasSignature && !window.confirm('서명 방식을 바꾸면 현재 서명이 지워집니다. 바꾸시겠어요?')) return
-    await runSavedAction(async (isCurrent) => {
-      if (form5.signatureScanUploaded) await deleteSignatureScan(applicationId)
-      if (!isCurrent()) return
-      onForm5({ ...form5, signature: '', signatureScanUploaded: false })
-      onSignMode(next)
-      setScanVersion((value) => value + 1)
-    }, false)
-  }
-
-  const uploadScan = async (file: File | undefined, input: HTMLInputElement) => {
-    if (!file || readOnly || pendingOperation.current !== null) return
-    input.value = ''
-    setLocalError('')
-    if (!['image/jpeg', 'image/png'].includes(file.type)) {
-      setLocalError('JPG 또는 PNG 이미지 파일을 올려 주세요.')
-      return
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setLocalError('서명 이미지는 10MB 이하로 올려 주세요.')
-      return
-    }
-    await runSavedAction(async (isCurrent) => {
-      await uploadSignatureScan(applicationId, file)
-      if (!isCurrent()) return
-      onForm5({ ...form5, signature: '', signatureScanUploaded: true })
-      setScanVersion((value) => value + 1)
-    }, false)
-  }
-
-  const removeScan = async () => {
-    if (readOnly) return
-    await runSavedAction(async (isCurrent) => {
-      await deleteSignatureScan(applicationId)
-      if (!isCurrent()) return
-      onForm5({ ...form5, signatureScanUploaded: false })
-      setScanVersion((value) => value + 1)
-    }, false)
   }
 
   const resetForm = async (formNo: string) => {
@@ -580,19 +369,11 @@ export default function PdfFormsWorkspace({
     const epoch = sessionEpoch.current
     pendingOperation.current = epoch
     setSaving(true)
-    setSaveNotice(null)
     setLocalError('')
     try {
-      if (formNo === '서식5' && form5.signatureScanUploaded) await deleteSignatureScan(applicationId)
       if (epoch !== sessionEpoch.current) return
       resetPending.current = epoch
-      if (formNo === '서식2') onAnswers({})
-      else if (formNo === '서식3') onConsent({ ...consent, privacy: '', uniqueId: '' })
-      else if (formNo === '서식4') onConsent({ ...consent, thirdParty: '' })
-      else if (formNo === '서식5') {
-        onForm5(EMPTY_FORM5)
-        onSignMode('화면에 서명')
-      } else if (formNo === 'job_consent') {
+      if (formNo === 'job_consent') {
         onConsent({ ...consent, privacy: '', thirdParty: '' })
         onForm1({ ...(form1 as unknown as Record<string, unknown>), 'consent.job.signature': '' } as unknown as Form1Value)
       } else {
@@ -626,19 +407,8 @@ export default function PdfFormsWorkspace({
 
   const saveAndClose = async () => {
     await runSavedAction(() => {
-      if (!inline) setActive(null)
-      else setSaveNotice({ message: '작성 내용을 저장했습니다.', values: draftValues })
+      setActive(null)
       setSignatureTarget(null)
-    })
-  }
-
-  const selectForm = async (formNo: string) => {
-    if (active?.formNo === formNo) return
-    await runSavedAction(() => {
-      setPage(0)
-      setSignatureTarget(null)
-      setActive({ formNo, mode: readOnly ? 'preview' : 'edit' })
-      scrollRef.current?.scrollTo({ top: 0, left: 0 })
     })
   }
 
@@ -670,8 +440,6 @@ export default function PdfFormsWorkspace({
     const fieldRef = `${field.page}-${fieldIndex}`
     if (field.type === 'check') {
       const checked = readChoice(key)
-      const group = fieldGroup(key)
-      const derived = group === 'residencePeriod' || group === 'workPeriod' || group === 'monthlyDeposit'
       if (field.control === 'radio_text') {
         const optionGroup = fieldGroup(key)
         const [gx0, gy0, gx1, gy1] = field.group_box || field.box
@@ -706,7 +474,7 @@ export default function PdfFormsWorkspace({
             id={publicId}
             type="checkbox"
             checked={checked}
-            disabled={derived || readOnly}
+            disabled={readOnly}
             aria-label={`${label} ${field.label || '선택'}`}
             onChange={(event) => toggleChoice(key, event.currentTarget.checked)}
           />
@@ -734,7 +502,7 @@ export default function PdfFormsWorkspace({
           style={boxStyle}
           aria-label="서명 입력란"
           title="눌러서 서명"
-          onClick={(event) => { signatureTriggerRef.current = event.currentTarget; setLocalError(''); setSignatureTarget(key) }}
+          onClick={() => { setLocalError(''); setSignatureTarget(key) }}
         >
           {value && <img src={value} alt="입력한 서명" />}
         </button>
@@ -746,7 +514,6 @@ export default function PdfFormsWorkspace({
     const round = key.match(/^job\.(interview|suit|certificate)\.(\d+)\./)
     const roundEnabled = !round || (subsidySelections.find((item) => item.item_type === round[1])?.count ?? 0) >= Number(round[2])
     const photoEnabled = !key.startsWith('job.photo.') || selectedItems.includes('photo')
-    const householdCountEnabled = key !== 'householdSizeCount' || form1.householdSize === '10인 이상'
     const suitField = key.match(/^job\.suit\.(\d+)\.(company|location|date)$/)
     const suitLink = suitField
       ? subsidySelections.find((item) => item.item_type === 'suit')?.linked_interview_indices[Number(suitField[1]) - 1]
@@ -774,22 +541,19 @@ export default function PdfFormsWorkspace({
         <input
         id={publicId}
         data-field-ref={fieldRef}
-        type={key === 'transferIn' || key === 'employedAt' ? 'date' : key === 'email' ? 'email' : 'text'}
+        type={key === 'email' ? 'email' : 'text'}
         className={`pdf-form__text pdf-form__text--${field.font_family || 'sans'} ${isMissing && required ? 'is-missing' : ''}`}
         style={{ ...boxStyle, fontSize: fitFont, textAlign: field.align || 'left' }}
         aria-label={label}
         aria-invalid={invalidEmail || undefined}
-        value={key === 'transferIn' || key === 'employedAt' ? isoDate(readForm(form1, key) as unknown as Form1Value['transferIn']) : applyFieldFormat(dateValue, field.format)}
-        readOnly={readOnly || locked || !roundEnabled || !photoEnabled || !householdCountEnabled || suitFieldsLinked || key.startsWith('written') || key.includes('.year') || key.includes('.month') || key.includes('.day') || key.startsWith('job.application')}
-        inputMode={key === 'householdSizeCount' || key === 'ecContact' ? 'numeric' : undefined}
+        value={applyFieldFormat(dateValue, field.format)}
+        readOnly={readOnly || locked || !roundEnabled || !photoEnabled || suitFieldsLinked || key.startsWith('written') || key.includes('.year') || key.includes('.month') || key.includes('.day') || key.startsWith('job.application')}
+        inputMode={key === 'ecContact' ? 'numeric' : undefined}
         maxLength={key === 'ecContact' ? 13 : undefined}
-        max={key === 'transferIn' || key === 'employedAt' ? layouts[active.formNo]?.auto_date : undefined}
         onChange={(event) => {
           const input = event.currentTarget
           const next = event.currentTarget.value
-          if (key === 'transferIn' || key === 'employedAt') {
-            onForm1({ ...form1, [key]: fromISO(next) })
-          } else if (key === 'ecContact' || key === 'mobile') {
+          if (key === 'ecContact' || key === 'mobile') {
             const digitCount = next.slice(0, event.currentTarget.selectionStart ?? next.length).replace(/\D/g, '').length
             const formatted = formatPhone(next)
             setText(key, formatted)
@@ -807,7 +571,6 @@ export default function PdfFormsWorkspace({
 
   const itemLabelForStatus = (formNo: string) => {
     if (!layouts[formNo]) return { state: 'loading', label: '불러오는 중', remaining: 0 }
-    if (paperForms[formNo]) return { state: 'paper', label: '스캔본 제출 예정', remaining: 0 }
     const remaining = missing(formNo).length
     if (remaining === 0) return { state: 'done', label: '작성 완료', remaining }
     if (hasStarted(formNo)) return { state: 'draft', label: `작성 중 · 남은 항목 ${remaining}개`, remaining }
@@ -872,144 +635,50 @@ export default function PdfFormsWorkspace({
           )}
         </div>
       </div>
-      {active.mode === 'edit' && !readOnly && signatureTarget && active.formNo !== '서식5' && (
+      {active.mode === 'edit' && !readOnly && signatureTarget && (
         <div className="pdf-form__sign-pad">
           <h4>서명 입력 <button type="button" className="btn" onClick={() => setSignatureTarget(null)}>완료</button></h4>
           <SignaturePad value={signatureValue(active.formNo)} onChange={(value) => setSignature(active.formNo, value)} width={260} height={90} />
           <button type="button" className="btn" onClick={() => setSignature(active.formNo, '')}>서명 다시 하기</button>
         </div>
       )}
-      {active.mode === 'edit' && !readOnly && active.formNo === '서식1' && (
-        <div className="pdf-form__extra">
-          <strong>기간 산정에 쓰는 날짜</strong>
-          <label>전북 최종 전입일
-            <input type="date" max={currentLayout?.auto_date} value={isoDate(form1.transferIn)} onChange={(event) => onForm1({ ...form1, transferIn: fromISO(event.currentTarget.value) })} />
-          </label>
-          <label>현 직장 입사일
-            <input type="date" max={currentLayout?.auto_date} value={isoDate(form1.employedAt)} onChange={(event) => onForm1({ ...form1, employedAt: fromISO(event.currentTarget.value) })} />
-          </label>
-          <span>기간 구간은 공고일 기준으로 서식에 자동 표시됩니다.</span>
-          {(isAfterBasis(form1.transferIn, program.announcement_date) || isAfterBasis(form1.employedAt, program.announcement_date)) && (
-            <span className="pdf-form__date-warning" role="alert">공고일({koreanDate(program.announcement_date)}) 이후 날짜입니다. 기간 보기에 해당하는 칸이 없습니다.</span>
-          )}
-        </div>
-      )}
     </fieldset>
   ) : null
 
   return (
-    <section className={inline ? "pdf-forms pdf-forms--inline" : "pdf-forms"}>
-      {!inline && <header className="pdf-forms__intro">
+    <section className="pdf-forms">
+      <header className="pdf-forms__intro">
         <div>
           <h2>신청 서식 작성</h2>
           <p>원본 서식 위에 직접 입력합니다. 작성 내용은 자동 저장됩니다.</p>
         </div>
         <ApplicantFormsBulkMenu applicationId={applicationId} refreshKey={thumbnailVersion} />
-      </header>}
-      {inline && <>
-        {(localError || error) && <p className="pdf-forms__error" role="alert">{localError || error} 저장 또는 서식 선택을 다시 시도해 주세요.</p>}
-        <div className="pdf-forms__workspace" aria-busy={saving}>
-          <aside className="pdf-forms__sidebar">
-            <div className="pdf-forms__sidebar-head">
-              <span>서식 목록</span>
-              <strong>{completedFormCount}<small> / {availableFormCount}</small></strong>
-            </div>
-            <nav aria-label="신청 서식 선택">
-              <ul className="pdf-forms__nav-list">
-                {formNos.map((formNo) => {
-                  const state = itemLabelForStatus(formNo)
-                  const selected = active?.formNo === formNo
-                  const layout = layouts[formNo]
-                  return <li key={formNo}>
-                    <button
-                      type="button"
-                      className={`pdf-forms__nav-item pdf-forms__nav-item--${state.state}${selected ? ' is-active' : ''}`}
-                      aria-current={selected ? 'step' : undefined}
-                      aria-controls="pdf-form-panel"
-                      disabled={!layout || saving || continuing}
-                      onClick={() => void selectForm(formNo)}
-                    >
-                      <span className="pdf-forms__nav-info">
-                        <span className="pdf-forms__nav-meta">
-                          <span className="pdf-forms__nav-label">{layout?.public_form || formNo}</span>
-                          <span className="pdf-forms__nav-status">{state.state === 'draft' ? '작성 중' : state.label}</span>
-                        </span>
-                        <strong>{layout?.title.replace(/ 및 필수사항.*$/, '') || formNo}</strong>
-                      </span>
-                    </button>
-                  </li>
-                })}
-              </ul>
-            </nav>
-          </aside>
-          <section id="pdf-form-panel" className="pdf-forms__panel" aria-labelledby="pdf-form-panel-title">
-            <header className="pdf-forms__panel-head">
-              <div>
-                <h2 id="pdf-form-panel-title">{active ? formLabel(active.formNo) : localError ? '서식을 불러오지 못했습니다' : '서식을 불러오는 중입니다'}</h2>
-                {active && <span className="pdf-forms__panel-state">{paperForms[active.formNo] ? '스캔본 제출' : active.mode === 'preview' ? '미리보기' : itemLabelForStatus(active.formNo).label}</span>}
-              </div>
-              <div className="pdf-forms__panel-actions">
-                <ApplicantFormsBulkMenu applicationId={applicationId} refreshKey={thumbnailVersion} />
-                {active && !paperForms[active.formNo] && !readOnly && <>
-                  {active.mode === 'preview'
-                    ? <button type="button" className="btn" disabled={saving || continuing} onClick={() => { setSignatureTarget(null); setActive({ ...active, mode: 'edit' }) }}>수정하기</button>
-                    : <button type="button" className="btn" disabled={saving || continuing} onClick={() => void startPreview(active.formNo)}>미리보기</button>}
-                  <button type="button" className="btn pdf-forms__reset" disabled={saving || continuing || itemLabelForStatus(active.formNo).state === 'empty'} onClick={() => void resetForm(active.formNo)}>다시 작성</button>
-                  <button type="button" className="btn btn--primary pdf-forms__save" disabled={saving || continuing} onClick={() => void saveAndClose()}>저장</button>
-                </>}
-              </div>
-            </header>
-            {(saving || currentSaveNotice) && <p className="pdf-forms__save-status" role="status">{saving ? '저장 중…' : currentSaveNotice}</p>}
-            {active && paperAllowed[active.formNo] && <div className="pdf-forms__paper-options">
-              <label>작성 방식
-                <select aria-label={`${formLabel(active.formNo)} 작성 방식`} value={paperForms[active.formNo] ? 'paper' : 'screen'} disabled={readOnly || saving || continuing} onChange={(event) => void changePaperMode(active.formNo, event.currentTarget.value === 'paper')}>
-                  <option value="screen">온라인 작성</option><option value="paper">스캔본 제출</option>
-                </select>
-              </label>
-              <span>{paperForms[active.formNo] ? '출력해 손으로 쓰고 서명한 뒤 올립니다. 휴대폰 사진도 됩니다.' : '이 화면에서 바로 작성하고 서명합니다.'}</span>
-            </div>}
-            {active && paperForms[active.formNo] ? <div className="pdf-forms__paper-state">
-              <span className="pdf-forms__paper-icon" aria-hidden="true">↥</span>
-              <h3>스캔본으로 제출하는 서식입니다</h3>
-              <p>상단 다운로드 메뉴에서 서식을 받은 뒤 작성하고 서명해 주세요.<br />작성한 서류는 다음 서류 업로드 단계에서 올릴 수 있습니다.</p>
-            </div> : viewerContent || <div className="pdf-forms__loading" role="status">{localError ? '페이지를 새로고침해 다시 시도해 주세요.' : '원본 서식을 준비하고 있습니다…'}</div>}
-            {active && !paperForms[active.formNo] && <p className="pdf-forms__mobile-hint">서식이 화면보다 넓으면 좌우로 스크롤해 주세요.</p>}
-          </section>
-        </div>
-      </>}
-      {!inline && <ul className="pdf-forms__list">
+      </header>
+      <ul className="pdf-forms__list">
         {formNos.map((formNo) => {
           const state = itemLabelForStatus(formNo)
           return (
             <li key={formNo} className={`pdf-form-row pdf-form-row--${state.state}`}>
-              <button type="button" className="pdf-form-row__thumb" disabled={!layouts[formNo] || !!paperForms[formNo]} onClick={() => void startPreview(formNo)} aria-label={`${formLabel(formNo)} 미리보기`}>
-                <img src={`/api/applications/${applicationId}/forms/${encodeURIComponent(formNo)}/pages/1.png?preview=${paperForms[formNo] ? 'false' : 'true'}&dpi=50&v=${thumbnailVersion}`} alt="" />
+              <button type="button" className="pdf-form-row__thumb" disabled={!layouts[formNo]} onClick={() => void startPreview(formNo)} aria-label={`${formLabel(formNo)} 미리보기`}>
+                <img src={`/api/applications/${applicationId}/forms/${encodeURIComponent(formNo)}/pages/1.png?preview=true&dpi=50&v=${thumbnailVersion}`} alt="" />
               </button>
               <div className="pdf-form-row__info">
                 <strong>{formLabel(formNo)}</strong>
                 <span>{state.label}</span>
-                {paperAllowed[formNo] && <label className="pdf-form-row__paper-mode">
-                  작성 방식
-                  <select aria-label={`${formLabel(formNo)} 작성 방식`} value={paperForms[formNo] ? 'paper' : 'screen'} disabled={readOnly} onChange={(event) => void changePaperMode(formNo, event.currentTarget.value === 'paper')}>
-                    <option value="screen">온라인 작성</option><option value="paper">스캔본 제출</option>
-                  </select>
-                  <small>{paperForms[formNo] ? '출력해 손으로 쓰고 서명한 뒤 올립니다. 휴대폰 사진도 됩니다.' : '이 화면에서 바로 작성하고 서명합니다.'}</small>
-                </label>}
-                {paperForms[formNo] && <p className="pdf-form-row__paper-files">위 다운로드 메뉴에서 서식을 받아 제출해 주세요.</p>}
               </div>
               <div className="pdf-form-row__actions">
-                {!readOnly && !paperForms[formNo] && <button type="button" className="btn btn--primary" disabled={!layouts[formNo]} onClick={() => { setPage(0); setSignatureTarget(null); setActive({ formNo, mode: 'edit' }) }}>
+                {!readOnly && <button type="button" className="btn btn--primary" disabled={!layouts[formNo]} onClick={() => { setPage(0); setSignatureTarget(null); setActive({ formNo, mode: 'edit' }) }}>
                   {state.state === 'done' ? '수정' : '작성하기'}
                 </button>}
-                {!paperForms[formNo] && <button type="button" className="btn" disabled={!layouts[formNo] || saving} onClick={() => void startPreview(formNo)}>미리보기</button>}
-                {!readOnly && !paperForms[formNo] && <button type="button" className="btn" disabled={!layouts[formNo] || state.state === 'empty'} onClick={() => resetForm(formNo)}>다시 작성</button>}
+                <button type="button" className="btn" disabled={!layouts[formNo] || saving} onClick={() => void startPreview(formNo)}>미리보기</button>
+                {!readOnly && <button type="button" className="btn" disabled={!layouts[formNo] || state.state === 'empty'} onClick={() => resetForm(formNo)}>다시 작성</button>}
               </div>
             </li>
           )
         })}
-      </ul>}
+      </ul>
 
-      {isJob && (
+      {(
         <section className="pdf-forms__selfcheck">
           <h3>지원 자격 확인</h3>
           {selfCheckItems.map((item) => (
@@ -1029,15 +698,15 @@ export default function PdfFormsWorkspace({
       {checkResult && !checkResult.eligible && checkResult.failed_item && (
         <p className="pdf-forms__error" role="alert">{checkResult.failed_item}번 문항: {checkResult.reason}</p>
       )}
-      {!inline && (localError || error) && <p className="pdf-forms__error" role="alert">{localError || error}</p>}
+      {(localError || error) && <p className="pdf-forms__error" role="alert">{localError || error}</p>}
       <div className="flow__actions">
         <button type="button" className="btn" onClick={() => window.scrollTo({ top: 0 })}>서식 목록</button>
         {!readOnly && <button type="button" className="btn btn--primary" disabled={!allReady || continuing || saving} onClick={submitWorkspace}>
-          {continuing ? '저장 중…' : isJob ? '지원 항목 단계로' : '서류 업로드로'}
+          {continuing ? '저장 중…' : '지원 항목 단계로'}
         </button>}
       </div>
 
-      {!inline && active && currentLayout && (
+      {active && currentLayout && (
         <Modal
           title={`${formLabel(active.formNo)} ${active.mode === 'preview' ? '미리보기' : '작성'}`}
           onClose={() => { if (signatureTarget) setSignatureTarget(null); else void saveAndClose() }}
@@ -1055,61 +724,6 @@ export default function PdfFormsWorkspace({
           {viewerContent}
         </Modal>
       )}
-      {active?.mode === 'edit' && active.formNo === '서식5' && !readOnly && signatureTarget && createPortal(
-        <div className="form-signature__overlay" onClick={() => setSignatureTarget(null)}>
-          <div ref={signatureDialogRef} className="form-signature" role="dialog" aria-modal="true" aria-label="서명하기" onClick={(event) => event.stopPropagation()}>
-            <header className="form-signature__head">
-              <h3>서명하기</h3>
-              <button type="button" className="form-signature__close" aria-label="닫기" autoFocus onClick={() => setSignatureTarget(null)}>×</button>
-            </header>
-            <div className="form-signature__tabs" role="group" aria-label="서명 방식">
-              <button type="button" disabled={saving} aria-pressed={signMode === '화면에 서명'} className={signMode === '화면에 서명' ? 'is-active' : ''} onClick={() => void changeSignMode('화면에 서명')}>그리기</button>
-              <button type="button" disabled={saving} aria-pressed={signMode === '서명 이미지 올리기'} className={signMode === '서명 이미지 올리기' ? 'is-active' : ''} onClick={() => void changeSignMode('서명 이미지 올리기')}>서명 파일 업로드</button>
-            </div>
-            <div className="form-signature__body" inert={saving}>
-              {signMode === '화면에 서명' ? (
-                <SignaturePad key={form5.signature ? 'signed' : 'empty'} value={form5.signature} onChange={(value) => setSignature('서식5', value)} width={Math.min(420, Math.max(220, window.innerWidth - 96))} height={210} />
-              ) : (
-                <div className="form-signature__upload">
-                  {form5.signatureScanUploaded ? <img src={signatureValue('서식5')} alt="업로드한 서명 미리보기" /> : <span>JPG 또는 PNG 서명 파일을 올려 주세요.</span>}
-                  <label className="btn" htmlFor="form-signature-file">{form5.signatureScanUploaded ? '다른 파일 선택' : '파일 선택'}</label>
-                  <input id="form-signature-file" type="file" disabled={saving} accept="image/jpeg,image/png,.jpg,.jpeg,.png" onChange={(event) => void uploadScan(event.currentTarget.files?.[0], event.currentTarget)} />
-                </div>
-              )}
-            </div>
-            {localError && <p className="form-signature__error" role="alert">{localError}</p>}
-            {saving && <p className="form-signature__status" role="status">서명을 저장하고 있습니다…</p>}
-            <footer className="form-signature__foot">
-              <button type="button" className="btn form-signature__clear" disabled={saving || (signMode === '화면에 서명' ? !form5.signature : !form5.signatureScanUploaded)} onClick={() => signMode === '화면에 서명' ? setSignature('서식5', '') : void removeScan()}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v6m4-6v6" /></svg>
-                지우기
-              </button>
-              <button type="button" className="btn btn--primary" disabled={saving || (signMode === '화면에 서명' ? !form5.signature : !form5.signatureScanUploaded)} onClick={() => setSignatureTarget(null)}>확인</button>
-            </footer>
-          </div>
-        </div>, document.body,
-      )}
     </section>
   )
-}
-
-function isoDate(value: Form1Value['transferIn']): string {
-  if (!value.y || !value.m || !value.d) return ''
-  return `${value.y}-${String(Number(value.m)).padStart(2, '0')}-${String(Number(value.d)).padStart(2, '0')}`
-}
-
-function fromISO(value: string): Form1Value['transferIn'] {
-  if (!value) return { y: '', m: '', d: '' }
-  const [y, m, d] = value.split('-')
-  return { y, m: String(Number(m)), d: String(Number(d)) }
-}
-
-function isAfterBasis(value: Form1Value['transferIn'], basis: string): boolean {
-  const selected = isoDate(value)
-  return !!selected && selected > basis
-}
-
-function koreanDate(value: string): string {
-  const [year, month, day] = value.split('-').map(Number)
-  return `${year}. ${month}. ${day}.`
 }

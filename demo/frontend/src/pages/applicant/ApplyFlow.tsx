@@ -1,17 +1,4 @@
-/**
- * 신청자 플로우.
- *
- *   [0] 사업 선택 → 본인인증(데모) → 자가진단 → 신청서 → 동의 → (취업패키지: 지원 항목)
- *   → 서류 업로드(즉시 판정) → 제출 전 최종 확인 → 제출 → 마이페이지
- *
- * 본인인증이 맨 앞에 오는 이유: 업로드 서류가 '이 신청자의 것인지' 대조할 기준이
- * 필요하다. 신청서의 성명·생년월일은 인증 값으로 채워지고 잠긴다.
- *
- * 서식 단계는 원본 PDF를 사용한다. 두배적금은 목록 옆 본문에서 작성하고,
- * 취업패키지는 기존 팝업을 유지한다. 자격·동의·지원 항목 규칙은 서버의 사업
- * 설정을 따르며, 신청번호와 마이페이지는 공유 상단 표시 영역에 렌더링한다.
- *
- */
+/** Youth employment package applicant flow; original forms and rules come from the API. */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -26,6 +13,7 @@ import {
   patchApplication,
   postConsents,
   postSelfCheck,
+  type ApplicationRow,
   type ConsentPayload,
   type Identity,
   type Program,
@@ -37,19 +25,16 @@ import DocumentUpload from './DocumentUpload.tsx'
 import FinalCheck from './FinalCheck.tsx'
 import IdentityCheck from './IdentityCheck.tsx'
 import MyPage from './MyPage.tsx'
-import ProgramPicker from './ProgramPicker.tsx'
 import SubsidyItems from './SubsidyItems.tsx'
 import PdfFormsWorkspace, { ApplicantFormsBulkMenu } from '../../forms/PdfFormsWorkspace.tsx'
 import { EMPTY_CONSENT, type ConsentValue } from '../../forms/consent-model.ts'
 import { CONSENT_OPTIONS } from '../../forms/consent-model.ts'
 import { EMPTY_FORM1, type Form1Value } from '../../forms/form1-model.ts'
-import { EMPTY_FORM5, SIGN_MODES, type Form5Value, type SignMode } from '../../forms/form5-model.ts'
 import type { SelfCheckAnswers } from '../../forms/form2-model.ts'
-import { currentMode, currentParams, routeUrl } from '../../navigation-url.ts'
+import { currentParams, routeUrl } from '../../navigation-url.ts'
 import './apply-flow.css'
 
 type Stage =
-  | 'program'
   | 'identity'
   | 'forms'
   | 'subsidy'
@@ -59,6 +44,18 @@ type Stage =
   | 'mypage'
 
 const ACTIVE_APPLICATION_KEY = 'applicant.activeApplicationId'
+const YOUTH_PROGRAM_CODE = 'job_package'
+// Share an in-flight draft across StrictMode replay and history remounts.
+let pendingDraft: Promise<ApplicationRow> | null = null
+function youthDraft(): Promise<ApplicationRow> {
+  if (!pendingDraft) {
+    pendingDraft = createApplication(YOUTH_PROGRAM_CODE).then((application) => {
+      try { window.sessionStorage.setItem(ACTIVE_APPLICATION_KEY, String(application.id)) } catch { /* In-memory flow still works. */ }
+      return application
+    }).catch((error: unknown) => { pendingDraft = null; throw error })
+  }
+  return pendingDraft.then((application) => fetchApplication(application.id))
+}
 
 function savedPage(): { appId: number; stage: Stage; previous: Stage } | null {
   const params = currentParams()
@@ -66,13 +63,14 @@ function savedPage(): { appId: number; stage: Stage; previous: Stage } | null {
   const stage = route?.[1] as Stage
   const previous = params.get('from') as Stage
   const stages: Stage[] = ['identity', 'forms', 'subsidy', 'upload', 'final', 'complete', 'mypage']
-  if (!stages.includes(stage)) return null
+  const removedEntry = params.get('mode') === 'officer' || params.get('program') === 'double_savings' || [...params.keys()].some((key) => key.startsWith('o_'))
+  const nextStage = stages.includes(stage) && !removedEntry ? stage : 'identity'
   try {
     const savedId = window.sessionStorage.getItem(ACTIVE_APPLICATION_KEY)
     if (!savedId || !/^[1-9]\d*$/.test(savedId)) return null
     const appId = Number(savedId)
     if (!Number.isSafeInteger(appId)) return null
-    return { appId, stage, previous: stages.includes(previous) ? previous : 'identity' }
+    return { appId, stage: nextStage, previous: stages.includes(previous) ? previous : 'identity' }
   } catch {
     return null
   }
@@ -87,8 +85,6 @@ const APPLY_STEPS: Step[] = [
   { key: 'final', label: '확인 및 제출' },
 ]
 
-type ConsentType = ConsentPayload['consent_type']
-
 /** 신청서의 성명·생년월일을 본인인증 값으로 덮는다 (서버도 같은 규칙으로 잠근다). */
 function lockIdentity(form: Form1Value, identity: Identity | null): Form1Value {
   if (!identity) return form
@@ -96,28 +92,15 @@ function lockIdentity(form: Form1Value, identity: Identity | null): Form1Value {
   return { ...form, name: identity.name, birth: { y, m: String(Number(m)), d: String(Number(d)) } }
 }
 
-/**
- * 받아야 하는 동의 종류.
- *
- * 두배적금은 서식3(수집·이용 + 고유식별정보) · 서식4(제3자 제공) · 서식5(행정정보
- * 공동이용)까지 4건이다. 취업패키지 사업계획서의 공통서류는 "① 신청서(개인정보
- * 수집이용제공 동의서)" 한 줄뿐이라 수집·이용과 제공 2건이다. 서버의
- * `ProgramConfig.consent_types`와 같은 값을 써야 제출이 막히지 않는다.
- */
-function consentTypesOf(program: Program): ConsentType[] {
-  return program.has_subsidy_items
-    ? ['privacy', 'third_party']
-    : ['privacy', 'unique_id', 'third_party', 'admin_info']
-}
-
 export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | null }) {
   const [initialPage] = useState(savedPage)
   const initialUrlWrite = useRef(true)
-  const [restoring, setRestoring] = useState(initialPage !== null)
+  const [restoring, setRestoring] = useState(true)
+  const [startupAttempt, setStartupAttempt] = useState(0)
   const [program, setProgram] = useState<Program | null>(null)
   const [appId, setAppId] = useState<number | null>(null)
   const [appNo, setAppNo] = useState('')
-  const [stage, setStage] = useState<Stage>('program')
+  const [stage, setStage] = useState<Stage>('identity')
   const [stageBeforeMypage, setStageBeforeMypage] = useState<Stage>('identity')
   const [error, setError] = useState('')
   const [identity, setIdentity] = useState<Identity | null>(null)
@@ -128,9 +111,6 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
   const [form1, setForm1] = useState<Form1Value>(EMPTY_FORM1)
 
   const [consent, setConsent] = useState<ConsentValue>(EMPTY_CONSENT)
-  const [form5, setForm5] = useState<Form5Value>(EMPTY_FORM5)
-  const [signMode, setSignMode] = useState<SignMode>('화면에 서명')
-  const [paperForms, setPaperForms] = useState<Record<string, boolean>>({})
 
   const [submitted, setSubmitted] = useState<SubmitResult | null>(null)
   /** 지원 항목이 바뀌면 업로드 화면의 체크리스트를 다시 읽게 하는 키. */
@@ -143,20 +123,45 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
-    if (!initialPage) return
     let active = true
+    if (!initialPage || initialPage.stage === 'identity') routeUrl('/apply/identity', {}, true)
     const restore = async () => {
       try {
-        const [application, programs, consents, status] = await Promise.all([
-          fetchApplication(initialPage.appId),
-          fetchPrograms(),
-          fetchApplicationConsents(initialPage.appId),
-          fetchStatus(initialPage.appId),
-        ])
-        const picked = programs.find((item) => item.code === application.program_code)
-        if (!picked) throw new Error('Program unavailable')
-        const subsidy = picked.has_subsidy_items ? await fetchSubsidyItems(initialPage.appId) : null
+        const programs = await fetchPrograms()
         if (!active) return
+        const picked = programs.find((item) => item.code === YOUTH_PROGRAM_CODE)
+        if (!picked) throw new Error('청년 취업지원패키지 설정을 불러오지 못했습니다.')
+        let application: ApplicationRow | null = null
+        let restored = false
+        const pageToRestore = initialPage ?? savedPage()
+        if (pageToRestore) {
+          try {
+            const saved = await fetchApplication(pageToRestore.appId)
+            if (!active) return
+            if (saved.program_code === YOUTH_PROGRAM_CODE) {
+              application = saved
+              restored = true
+            } else {
+              pendingDraft = null
+              try { window.sessionStorage.removeItem(ACTIVE_APPLICATION_KEY) } catch { /* Storage may be disabled. */ }
+            }
+          } catch (error: unknown) {
+            if (!active) return
+            if (!(error instanceof Error) || !/실패 \(404\)/.test(error.message)) throw error
+            pendingDraft = null
+            try { window.sessionStorage.removeItem(ACTIVE_APPLICATION_KEY) } catch { /* Storage may be disabled. */ }
+          }
+        }
+        if (!active) return
+        if (!application) application = await youthDraft()
+        const [consents, status, subsidy] = await Promise.all([
+          fetchApplicationConsents(application.id), fetchStatus(application.id), fetchSubsidyItems(application.id),
+        ])
+        if (!active) return
+        try {
+          window.sessionStorage.setItem(ACTIVE_APPLICATION_KEY, String(application.id))
+          pendingDraft = null
+        } catch { /* Retain the shared promise in memory when storage is disabled. */ }
         setProgram(picked)
         setAppId(application.id)
         setAppNo(application.application_no)
@@ -164,58 +169,39 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
         setIdentity(savedIdentity?.name && savedIdentity.birth ? savedIdentity as Identity : null)
         setForm1({ ...EMPTY_FORM1, ...application.form1_json } as Form1Value)
         setAnswers(application.self_check_json as SelfCheckAnswers)
-        setForm5({ ...EMPTY_FORM5, ...application.form5_json } as Form5Value)
-        setSignMode(application.form5_json.signatureScanUploaded ? SIGN_MODES[1] : SIGN_MODES[0])
-        setSelectedSubsidyTypes(subsidy?.selections.length ?? 0)
+        setSelectedSubsidyTypes(subsidy.selections.length)
         const consentValue = (type: string) => {
           const item = consents.find((row) => row.consent_type === type)
           return item ? CONSENT_OPTIONS[item.agreed ? 0 : 1] : ''
         }
-        setConsent({
-          privacy: consentValue('privacy'),
-          uniqueId: consentValue('unique_id'),
-          thirdParty: consentValue('third_party'),
-        })
+        setConsent({ privacy: consentValue('privacy'), thirdParty: consentValue('third_party') })
         if (status.status !== 'draft') {
-          setSubmitted({
-            application_no: status.application_no,
-            submitted_at: status.submitted_at,
-            status: status.status,
-            message: '신청이 완료되었습니다.',
-            next_steps: [],
-            first_come: status.first_come,
-            supplement: status.supplement,
-            subsidy: status.subsidy,
-            notice: status.result_notice,
-          })
+          setSubmitted({ application_no: status.application_no, submitted_at: status.submitted_at,
+            status: status.status, message: '신청이 완료되었습니다.', next_steps: [],
+            first_come: status.first_come, supplement: status.supplement, subsidy: status.subsidy, notice: status.result_notice })
         }
-        setStage(initialPage.stage === 'complete' && status.status === 'draft' ? 'final' : initialPage.stage)
-        setStageBeforeMypage(initialPage.previous)
-      } catch {
-        if (!active) return
-        try {
-          window.sessionStorage.removeItem(ACTIVE_APPLICATION_KEY)
-        } catch {
-          // Storage may be disabled; the failed restore still returns to program selection.
-        }
-        if (currentMode() === 'applicant') routeUrl('/', {}, true)
+        const requestedStage = restored && initialPage ? initialPage.stage : 'identity'
+        setStage(requestedStage === 'complete' && status.status === 'draft' ? 'final' : requestedStage)
+        setStageBeforeMypage(restored && initialPage ? initialPage.previous : 'identity')
+      } catch (error: unknown) {
+        if (active) setError(error instanceof Error ? error.message : String(error))
       } finally {
         if (active) setRestoring(false)
       }
     }
     void restore()
     return () => { active = false }
-  }, [initialPage])
+  }, [initialPage, startupAttempt])
 
   useEffect(() => {
-    if (restoring || currentMode() !== 'applicant') return
+    if (restoring) return
     try {
       if (appId !== null) window.sessionStorage.setItem(ACTIVE_APPLICATION_KEY, String(appId))
     } catch {
-      // Continue in memory when tab storage is unavailable; refresh returns to program selection.
+      // Continue in memory when tab storage is unavailable; refresh returns to identity verification.
     }
-    if (appId === null || stage === 'program') {
-      routeUrl('/', {}, true)
+    if (appId === null) {
+      routeUrl('/apply/identity', {}, true)
     } else {
       routeUrl(`/apply/${stage}`, stage === 'mypage' ? { from: stageBeforeMypage } : {}, initialUrlWrite.current)
     }
@@ -229,27 +215,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
     setUploadProgress({ completed, total })
   }, [])
 
-  /** 사업을 고른 시점에 신청 건을 만든다. 이후 단계마다 부분 저장한다. */
-  const pickProgram = (picked: Program) => {
-    setProgram(picked)
-    setAnswers({})
-    setCheckResult(null)
-    setIdentity(null)
-    setSelectedSubsidyTypes(0)
-    setForm1(EMPTY_FORM1)
-    setFormProgress({ completed: 0, total: 0 })
-    setUploadProgress({ completed: 0, total: 0 })
-    setSubmitted(null)
-    createApplication(picked.code)
-      .then((a) => {
-        setAppId(a.id)
-        setAppNo(a.application_no)
-        setStage('identity')
-      })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
-  }
-
-  const save = (body: { form1?: unknown; self_check?: unknown; form5?: unknown }): Promise<void> => {
+  const save = (body: { form1?: unknown; self_check?: unknown }): Promise<void> => {
     if (appId === null) return Promise.resolve()
     const next = saveQueue.current.catch(() => undefined).then(() => patchApplication(appId, body)).then(() => undefined)
     saveQueue.current = next.catch(() => undefined)
@@ -269,28 +235,11 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
         setFormError('필수 동의와 서명을 모두 마쳐 주세요.')
         return
       }
-    const types = consentTypesOf(program)
-    const values: Record<ConsentType, ConsentPayload> = {
-      privacy: { consent_type: 'privacy', agreed: consent.privacy === '동의함' },
-      unique_id: { consent_type: 'unique_id', agreed: consent.uniqueId === '동의함' },
-      third_party: {
-        consent_type: 'third_party',
-        agreed: consent.thirdParty === '동의함',
-      },
-      admin_info: {
-        consent_type: 'admin_info',
-        agreed: form5.agree === '동의함',
-        signature_data_url: signMode === '화면에 서명' ? form5.signature : undefined,
-        signature_kind: signMode === '화면에 서명' ? 'electronic' : 'handwritten',
-      },
-    }
-    // 어느 동의를 받아야 하는지는 사업이 정한다. 취업패키지에는 서식5가 없다.
-      await postConsents(
-      appId,
-      types.filter((t) => !(t === 'admin_info' && paperForms['서식5'])).map((t) => values[t]),
-    )
-    if (types.includes('admin_info')) save({ form5 })
-    setStage(program.has_subsidy_items ? 'subsidy' : 'upload')
+      await postConsents(appId, [
+        { consent_type: 'privacy', agreed: consent.privacy === '동의함' },
+        { consent_type: 'third_party', agreed: consent.thirdParty === '동의함' },
+      ])
+      setStage('subsidy')
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -307,35 +256,10 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
   }
 
   if (restoring) return <p className="flow">신청 화면을 불러오는 중입니다...</p>
-  if (error) return <p className="flow-error">{error}</p>
+  if (error) return <div className="flow"><p className="flow-error" role="alert">{error}</p><button type="button" className="btn" onClick={() => { setError(''); setRestoring(true); setStartupAttempt((attempt) => attempt + 1) }}>다시 시도</button></div>
 
-  if (program === null || stage === 'program') {
-    return (
-      <div className="flow">
-        <header className="flow__head flow__head--solo">
-          <div>
-            <h1>사업 선택</h1>
-            <p className="flow__sub">
-              전북특별자치도 청년 지원사업 2종 — 고른 사업의 기준으로 이후 화면이 구성됩니다
-            </p>
-          </div>
-        </header>
-        <ProgramPicker onPick={pickProgram} />
-      </div>
-    )
-  }
-
-  const consentTypes = consentTypesOf(program)
-  const needsAdminConsent = consentTypes.includes('admin_info')
-  const needsUniqueId = consentTypes.includes('unique_id')
-
-  const consentReady =
-    consent.privacy === '동의함' &&
-    (!needsUniqueId || consent.uniqueId === '동의함') &&
-    consent.thirdParty === '동의함' &&
-    (!needsAdminConsent || paperForms['서식5'] ||
-      (form5.agree === '동의함' &&
-        (signMode === '화면에 서명' ? !!form5.signature : form5.signatureScanUploaded)))
+  if (program === null) return <p className="flow">신청 화면을 불러오는 중입니다...</p>
+  const consentReady = consent.privacy === '동의함' && consent.thirdParty === '동의함'
 
   const submittedDone = submitted !== null
   const uploadComplete = uploadProgress.total > 0 && uploadProgress.completed >= uploadProgress.total
@@ -378,7 +302,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
   }
 
   return (
-    <div className={`flow flow--active${stage === 'upload' ? ' flow--fluid' : stage === 'forms' && program.code === 'double_savings' ? ' flow--forms' : ''}`}>
+    <div className={`flow flow--active${stage === 'upload' ? ' flow--fluid' : ''}`}>
       {headerHost && appId !== null && createPortal(
         <div className="shell__application-controls">
           <span className="shell__application-number">신청번호 <strong>{appNo || '발급 중…'}</strong></span>
@@ -448,47 +372,28 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
         <PdfFormsWorkspace
           key={`${appId}:${program.code}:${!!submitted}`}
           applicationId={appId}
-          program={program}
           identity={identity}
           form1={form1}
           answers={answers}
           consent={consent}
-          form5={form5}
-          signMode={signMode}
           checkResult={checkResult}
           onForm1={onForm1}
           onAnswers={(next) => { setAnswers(next); setCheckResult(null); save({ self_check: next }) }}
           onConsent={setConsent}
-          onForm5={(next) => { setForm5(next); save({ form5: next }) }}
-          onSignMode={setSignMode}
           onFlush={async () => {
             if (appId === null) return
             await saveQueue.current
-            await patchApplication(appId, { form1, self_check: answers, form5 })
-            const values: Record<ConsentType, ConsentPayload> = {
-              privacy: { consent_type: 'privacy', agreed: consent.privacy === '동의함' },
-              unique_id: { consent_type: 'unique_id', agreed: consent.uniqueId === '동의함' },
-              third_party: { consent_type: 'third_party', agreed: consent.thirdParty === '동의함' },
-              admin_info: {
-                consent_type: 'admin_info',
-                agreed: form5.agree === '동의함',
-                signature_data_url: signMode === '화면에 서명' ? form5.signature : undefined,
-                signature_kind: signMode === '화면에 서명' ? 'electronic' : 'handwritten',
-              },
-            }
-            const selectedConsent: Record<ConsentType, string> = {
-              privacy: consent.privacy,
-              unique_id: consent.uniqueId,
-              third_party: consent.thirdParty,
-              admin_info: form5.agree,
-            }
-            await postConsents(appId, consentTypesOf(program)
-              .filter((type) => !(type === 'admin_info' && paperForms['서식5']))
-              .filter((type) => selectedConsent[type] === '동의함' || selectedConsent[type] === '동의하지 않음')
-              .map((type) => values[type]))
+            await patchApplication(appId, { form1, self_check: answers })
+            const values: ConsentPayload[] = [
+              { consent_type: 'privacy', agreed: consent.privacy === '동의함' },
+              { consent_type: 'third_party', agreed: consent.thirdParty === '동의함' },
+            ]
+            await postConsents(appId, values.filter((item) => {
+              const selected = item.consent_type === 'privacy' ? consent.privacy : consent.thirdParty
+              return selected === '동의함' || selected === '동의하지 않음'
+            }))
           }}
           onChangedSubsidy={(state) => { setSelectedSubsidyTypes(state.selections.length); setChecklistKey((key) => key + 1) }}
-          onPaperFormsChange={setPaperForms}
           onContinue={() => void continueFromForms()}
           continuing={formContinuing}
           error={formError}
@@ -554,7 +459,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
             <button
               type="button"
               className="btn"
-              onClick={() => setStage(program.has_subsidy_items ? 'subsidy' : 'forms')}
+              onClick={() => setStage('subsidy')}
             >
               이전
             </button>

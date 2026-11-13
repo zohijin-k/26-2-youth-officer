@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Skeleton, SkeletonBlock, SkeletonLine } from './Skeleton.tsx'
 import useDelayedFlag from '../hooks/useDelayedFlag.ts'
+import { YOUTH_PROGRAM } from '../officer-scope.ts'
 
 import {
   fetchOfficerCriteria,
@@ -11,24 +12,15 @@ import {
   type IssueRule,
 } from '../api.ts'
 
-const DOCS: Record<string, { key: string; label: string }[]> = {
-  double_savings: [
-    { key: 'resident_abstract', label: '주민등록표 초본' },
-    { key: 'nhis_payment', label: '건강보험료 납부확인서' },
-    { key: 'nhis_qualification', label: '건강보험 자격확인서' },
-    { key: 'nhis_acquisition_loss', label: '건강보험 자격득실확인서' },
-    { key: 'work_proof', label: '근로확인서류' },
-  ],
-  job_package: [
-    { key: 'application_form', label: '신청서 및 동의서' },
-    { key: 'resident_abstract', label: '주민등록표 초본' },
-    { key: 'bank_account', label: '본인 명의 통장 사본' },
-    { key: 'confirmation', label: '면접확인서' },
-    { key: 'receipt', label: '결제 영수증' },
-    { key: 'photo', label: '면접용 사진사본' },
-    { key: 'exam', label: '시험 응시·성적 확인서' },
-  ],
-}
+const DOCS = [
+  { key: 'application_form', label: '신청서 및 동의서' },
+  { key: 'resident_abstract', label: '주민등록표 초본' },
+  { key: 'bank_account', label: '본인 명의 통장 사본' },
+  { key: 'confirmation', label: '면접확인서' },
+  { key: 'receipt', label: '결제 영수증' },
+  { key: 'photo', label: '면접용 사진사본' },
+  { key: 'exam', label: '시험 응시·성적 확인서' },
+]
 
 const MODES: { value: IssueRule['mode']; label: string }[] = [
   { value: 'after_date', label: '지정 날짜 이후 발급' },
@@ -51,45 +43,35 @@ const init = (data: CriteriaData) => ({
   paper_forms: data.paper_forms ?? {},
 })
 
-export default function CriteriaEditor({
-  code,
-  onClose,
-  applicantDemo = false,
-}: {
-  code: string
-  onClose?: () => void
-  applicantDemo?: boolean
-}) {
+export default function CriteriaEditor() {
   const [current, setCurrent] = useState<CriteriaData | null>(null)
   const [history, setHistory] = useState<CriteriaVersion[]>([])
   const [form, setForm] = useState<ReturnType<typeof init> | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  const [monthYear, setMonthYear] = useState(2025)
   const showSkeleton = useDelayedFlag((!form || !current) && !error)
 
   useEffect(() => {
-    fetchOfficerCriteria(code)
+    fetchOfficerCriteria(YOUTH_PROGRAM)
       .then((data) => {
         setCurrent(data.current)
         setHistory(data.history)
         setForm(init(data.current))
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
-  }, [code])
+  }, [])
 
   if (error) return <p role="alert">{error}</p>
   if (!form || !current) return showSkeleton ? (
     <Skeleton className="criteria-editor criteria-editor__skeleton">
-      <header className="criteria-editor__head"><div><h2>{applicantDemo ? '관리자 설정 — 실서비스에서는 담당자 화면에서만 바뀝니다' : '심사 기준'}</h2><p>현재 적용 기준 <SkeletonLine className="criteria-editor__inline-line" width="42px" /></p></div>{onClose && <button type="button" disabled aria-disabled="true">닫기</button>}</header>
+      <header className="criteria-editor__head"><div><h2>심사 기준</h2><p>현재 적용 기준 <SkeletonLine className="criteria-editor__inline-line" width="42px" /></p></div></header>
       <fieldset><legend>공통 기준</legend>{['공고일', '신청 시작일', '신청 종료일'].map((label) => <label key={label}>{label}<SkeletonBlock className="criteria-editor__input-skeleton" /></label>)}</fieldset>
-      <table className="criteria-editor__table"><thead><tr><th>필수 서류</th><th>날짜 종류</th><th>기준</th><th>값</th></tr></thead><tbody>{(DOCS[code] ?? DOCS.double_savings).map((doc) => <tr key={doc.key}><th scope="row">{doc.label}</th><td><SkeletonBlock className="criteria-editor__input-skeleton" /></td><td><SkeletonBlock className="criteria-editor__input-skeleton" /></td><td><SkeletonBlock className="criteria-editor__input-skeleton" /></td></tr>)}</tbody></table>
-      <fieldset><legend>스캔본 제출 허용 서식</legend><p>허용한 서식은 신청자가 온라인 작성 또는 스캔본 제출을 선택할 수 있습니다.</p><table className="criteria-editor__table"><thead><tr><th>서식</th><th>스캔본 제출 허용</th></tr></thead><tbody>{[0, 1, 2].map((row) => <tr key={row}><th scope="row"><SkeletonLine width="58px" /></th><td><SkeletonBlock className="criteria-editor__checkbox-skeleton" /></td></tr>)}</tbody></table></fieldset>
-      {code === 'job_package' && <fieldset><legend>취업패키지 지원 항목 기준</legend><table className="criteria-editor__table"><thead><tr><th>지원 항목·안내</th><th>회당 한도</th><th>지급 방식</th><th>횟수</th><th>횟수 범위</th><th>필요 서류 · 기준 날짜</th></tr></thead><tbody>{[0, 1, 2].map((row) => <tr key={row}>{[0, 1, 2, 3, 4, 5].map((col) => <td key={col}><SkeletonLine width="76%" /></td>)}</tr>)}</tbody></table></fieldset>}
-      <fieldset><legend>서류별 내용 기준</legend><strong>납부확인서 평균 고지월</strong><div className="criteria-editor__skeleton-months">{Array.from({ length: 12 }, (_, i) => <SkeletonBlock key={i} className="criteria-editor__input-skeleton" />)}</div><label>자격득실확인서 변동내역 포함 기간 (년)<SkeletonBlock className="criteria-editor__input-skeleton" /></label></fieldset>
+      <table className="criteria-editor__table"><thead><tr><th>필수 서류</th><th>날짜 종류</th><th>기준</th><th>값</th></tr></thead><tbody>{DOCS.map((doc) => <tr key={doc.key}><th scope="row">{doc.label}</th><td><SkeletonBlock className="criteria-editor__input-skeleton" /></td><td><SkeletonBlock className="criteria-editor__input-skeleton" /></td><td><SkeletonBlock className="criteria-editor__input-skeleton" /></td></tr>)}</tbody></table>
+      <fieldset><legend>취업패키지 지원 항목 기준</legend><table className="criteria-editor__table"><thead><tr><th>지원 항목·안내</th><th>회당 한도</th><th>지급 방식</th><th>횟수</th><th>횟수 범위</th><th>필요 서류 · 기준 날짜</th></tr></thead><tbody>{[0, 1, 2].map((row) => <tr key={row}>{[0, 1, 2, 3, 4, 5].map((col) => <td key={col}><SkeletonLine width="76%" /></td>)}</tr>)}</tbody></table></fieldset>
+      <fieldset><legend>서류 보완</legend><SkeletonBlock className="criteria-editor__input-skeleton" /></fieldset>
       <button type="button" disabled aria-disabled="true">기준 저장</button>
-      {!applicantDemo && <table className="criteria-editor__history"><caption>기준 버전 이력</caption><thead><tr><th>버전</th><th>저장 시각</th><th>역할</th></tr></thead><tbody>{[0, 1, 2].map((row) => <tr key={row}>{[0, 1, 2].map((col) => <td key={col}><SkeletonLine width="72%" /></td>)}</tr>)}</tbody></table>}
+      <table className="criteria-editor__history"><caption>기준 버전 이력</caption><thead><tr><th>버전</th><th>저장 시각</th><th>역할</th></tr></thead><tbody>{[0, 1, 2].map((row) => <tr key={row}>{[0, 1, 2].map((col) => <td key={col}><SkeletonLine width="72%" /></td>)}</tr>)}</tbody></table>
     </Skeleton>
   ) : null
 
@@ -106,7 +88,7 @@ export default function CriteriaEditor({
     setBusy(true)
     setError('')
     try {
-      const saved = await saveOfficerCriteria(code, 'province', form)
+      const saved = await saveOfficerCriteria(YOUTH_PROGRAM, 'province', form)
       setCurrent(saved)
       setHistory((prev) => [saved, ...prev])
       setForm(init(saved))
@@ -118,25 +100,13 @@ export default function CriteriaEditor({
     }
   }
 
-  const toggleMonth = (month: number) => {
-    const value = `${monthYear}-${String(month).padStart(2, '0')}`
-    setForm((prev) => {
-      if (!prev) return prev
-      const selected = new Set(prev.nhis_payment_months)
-      if (selected.has(value)) selected.delete(value)
-      else selected.add(value)
-      return { ...prev, nhis_payment_months: [...selected].sort() }
-    })
-  }
-
   return (
     <section className="criteria-editor" aria-label="심사 기준 설정">
       <header className="criteria-editor__head">
         <div>
-          <h2>{applicantDemo ? '관리자 설정 — 실서비스에서는 담당자 화면에서만 바뀝니다' : '심사 기준'}</h2>
+          <h2>심사 기준</h2>
           <p>현재 적용 기준 v{current.version}</p>
         </div>
-        {onClose && <button type="button" onClick={onClose}>닫기</button>}
       </header>
 
       <fieldset disabled={busy}>
@@ -152,7 +122,7 @@ export default function CriteriaEditor({
 
       <table className="criteria-editor__table">
         <thead><tr><th>필수 서류</th><th>날짜 종류</th><th>기준</th><th>값</th></tr></thead>
-        <tbody>{(DOCS[code] ?? DOCS.double_savings).map((doc) => {
+        <tbody>{DOCS.map((doc) => {
           const rule = form.document_issue_rules[doc.key] ?? form.document_issue_fallback
           const basis = form.document_date_bases[doc.key] ?? 'issue_date'
           return <tr key={doc.key}>
@@ -176,21 +146,6 @@ export default function CriteriaEditor({
       </table>
 
       <fieldset disabled={busy}>
-        <legend>스캔본 제출 허용 서식</legend>
-        <p>허용한 서식은 신청자가 온라인 작성 또는 스캔본 제출을 선택할 수 있습니다.</p>
-        <table className="criteria-editor__table">
-          <thead><tr><th>서식</th><th>스캔본 제출 허용</th></tr></thead>
-          <tbody>{Object.entries(form.paper_forms).map(([formNo, allowed]) => <tr key={formNo}>
-            <th scope="row">{formNo}</th>
-            <td><label><input type="checkbox" checked={allowed} onChange={(event) => setForm({
-              ...form,
-              paper_forms: { ...form.paper_forms, [formNo]: event.currentTarget.checked },
-            })} /> 허용</label></td>
-          </tr>)}</tbody>
-        </table>
-      </fieldset>
-
-      {code === 'job_package' && <fieldset disabled={busy}>
         <legend>취업패키지 지원 항목 기준</legend>
         <table className="criteria-editor__table">
           <thead><tr><th>지원 항목·안내</th><th>회당 한도</th><th>지급 방식</th><th>횟수</th><th>횟수 범위</th><th>필요 서류 · 기준 날짜</th></tr></thead>
@@ -218,37 +173,10 @@ export default function CriteriaEditor({
             </label>)}</td>
           </tr>)}</tbody>
         </table>
-      </fieldset>}
+      </fieldset>
 
       <fieldset disabled={busy}>
-        <legend>서류별 내용 기준</legend>
-        <div className="criteria-editor__month-picker">
-          <strong>납부확인서 평균 고지월</strong>
-          <div className="criteria-editor__month-year">
-            <button type="button" onClick={() => setMonthYear((year) => year - 1)}>◀</button>
-            <span>{monthYear}</span>
-            <button type="button" onClick={() => setMonthYear((year) => year + 1)}>▶</button>
-          </div>
-          <div className="criteria-editor__month-grid" role="group" aria-label={`${monthYear}년 월 선택`}>
-            {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => {
-              const value = `${monthYear}-${String(month).padStart(2, '0')}`
-              const selected = form.nhis_payment_months.includes(value)
-              return <button key={value} type="button" aria-pressed={selected} className={selected ? 'is-selected' : ''} onClick={() => toggleMonth(month)}>{month}월</button>
-            })}
-          </div>
-          <div className="criteria-editor__month-chips" aria-label="선택한 고지월">
-            {[...form.nhis_payment_months].sort().map((value) => {
-              const [year, month] = value.split('-')
-              return <button key={value} type="button" onClick={() => {
-                setForm((prev) => prev && ({ ...prev, nhis_payment_months: prev.nhis_payment_months.filter((item) => item !== value) }))
-              }}>{year}년 {Number(month)}월 ×</button>
-            })}
-          </div>
-          {form.nhis_payment_months.length === 0 && <p role="alert">평균에 포함할 고지월을 하나 이상 선택해 주세요.</p>}
-        </div>
-        <label>자격득실확인서 변동내역 포함 기간 (년)
-          <input type="number" min={1} max={10} value={form.nhis_acquisition_loss_years} onChange={(e) => setForm({ ...form, nhis_acquisition_loss_years: Number(e.target.value) })} />
-        </label>
+        <legend>서류 보완</legend>
         <label className="criteria-editor__supplement-toggle">
           <input type="checkbox" checked={form.supplement.allowed} onChange={(e) => setForm({
             ...form,
@@ -264,12 +192,12 @@ export default function CriteriaEditor({
         </label>
       </fieldset>
 
-      <button type="button" disabled={busy || form.nhis_payment_months.length === 0 || (form.supplement.allowed && !form.supplement.days)} onClick={() => void save()}>{busy ? '저장 중…' : '기준 저장'}</button>
+      <button type="button" disabled={busy || (form.supplement.allowed && !form.supplement.days)} onClick={() => void save()}>{busy ? '저장 중…' : '기준 저장'}</button>
       {message && <p role="status">{message}</p>}
       {error && <p role="alert">{error}</p>}
-      {!applicantDemo && <table className="criteria-editor__history"><caption>기준 버전 이력</caption><thead><tr><th>버전</th><th>저장 시각</th><th>역할</th></tr></thead><tbody>
+      <table className="criteria-editor__history"><caption>기준 버전 이력</caption><thead><tr><th>버전</th><th>저장 시각</th><th>역할</th></tr></thead><tbody>
         {history.map((item) => <tr key={item.version}><td>v{item.version}</td><td>{item.changed_at ?? '-'}</td><td>{item.changed_role ?? '-'}</td></tr>)}
-      </tbody></table>}
+      </tbody></table>
     </section>
   )
 }

@@ -1,105 +1,39 @@
-/**
- * 데모 진입점. 신청자 화면과 담당자 화면을 한 번에 시연한다.
- *
- * 두 화면을 동시에 마운트해 두고 보이기만 전환한다. 전환할 때마다 언마운트하면
- * 작성하던 내용이 날아가는데, 시연 중 두 화면을 오가는 것이 기본 동선이라
- * 상태를 유지하는 편이 맞다.
- *
- * 전북 표시를 누르면 처음으로 돌아간다. 신청자/담당자 탭은 각 화면의 상태를
- * 유지하고, 신청번호와 마이페이지는 신청자 화면에서만 상단에 표시한다.
- */
+/** 청년 취업지원패키지 담당자 화면. 상세 주소와 브라우저 이력을 유지한다. */
+import { useEffect, useState } from 'react'
 
-import { useEffect, useRef, useState } from 'react'
-
-import ApplyFlow from './pages/applicant/ApplyFlow.tsx'
 import OfficerConsole from './pages/officer/OfficerConsole.tsx'
-import { currentMode, currentUrl, goToHome, routeUrl, type Mode } from './navigation-url.ts'
+import { routeUrl } from './navigation-url.ts'
 import './app-shell.css'
 
-const MODES: { key: Mode; label: string }[] = [
-  { key: 'applicant', label: '신청자' },
-  { key: 'officer', label: '담당자' },
-]
-
 export default function App() {
-  const [mode, setMode] = useState<Mode>(currentMode)
-  /** 값이 바뀌면 신청자 화면이 새로 마운트돼 사업 선택 화면으로 돌아간다. */
-  const [applicantKey, setApplicantKey] = useState(0)
   const [officerKey, setOfficerKey] = useState(0)
-  const [applicantHeaderHost, setApplicantHeaderHost] = useState<HTMLDivElement | null>(null)
-  const applicantUrl = useRef<string | null>(currentMode() === 'applicant' ? currentUrl() : null)
-  const officerUrl = useRef<string | null>(currentMode() === 'officer' ? currentUrl() : null)
 
   useEffect(() => {
-    const onHistoryChange = () => {
-      const next = currentMode()
-      if (next === 'applicant') applicantUrl.current = currentUrl()
-      else officerUrl.current = currentUrl()
-      setMode(next)
-      setApplicantKey((key) => key + 1)
-      setOfficerKey((key) => key + 1)
-    }
-    window.addEventListener('popstate', onHistoryChange)
-    return () => window.removeEventListener('popstate', onHistoryChange)
+    const restore = () => setOfficerKey((key) => key + 1)
+    window.addEventListener('popstate', restore)
+    return () => window.removeEventListener('popstate', restore)
   }, [])
 
-  const pick = (next: Mode) => {
-    if (next !== mode) {
-      if (mode === 'applicant') applicantUrl.current = currentUrl()
-      else officerUrl.current = currentUrl()
-      const remembered = next === 'applicant' ? applicantUrl.current : officerUrl.current
-      if (remembered) window.history.pushState(null, '', remembered)
-      else routeUrl(next === 'applicant' ? '/' : '/officer')
-    }
-    setMode(next)
-    window.scrollTo({ top: 0 })
-  }
-
   const goHome = () => {
-    goToHome()
-    applicantUrl.current = currentUrl()
-    officerUrl.current = null
-    setMode('applicant')
-    setApplicantKey((key) => key + 1)
+    routeUrl('/officer')
     setOfficerKey((key) => key + 1)
     window.scrollTo({ top: 0 })
   }
 
   return (
-    <div className={mode === 'applicant' ? 'app-shell app-shell--applicant' : 'app-shell'}>
-      <nav className="shell" aria-label="화면 전환">
-        <div className="shell__inner">
-          <span className="shell__title">
-            <button className="shell__mark" type="button" onClick={goHome} aria-label="처음 화면으로 이동">
-              전북
-            </button>
-            <span>
-              <strong>청년 지원사업 신청서류 자동 검토</strong>
-              <small>전북청년 함께 두배적금 · 전북청년 취업지원패키지</small>
-            </span>
+    <div className="app-shell">
+      <nav className="shell" aria-label="담당자 화면">
+        <span className="shell__title">
+          <button className="shell__mark" type="button" onClick={goHome} aria-label="신청 목록으로 이동">
+            전북
+          </button>
+          <span>
+            <strong>청년 취업지원패키지</strong>
+            <small>담당자 신청서류 검토</small>
           </span>
-          <div ref={setApplicantHeaderHost} className="shell__application" hidden={mode !== 'applicant'} />
-          <span className="shell__tabs">
-            {MODES.map((m) => (
-              <button
-                key={m.key}
-                type="button"
-                className={m.key === mode ? 'shell__tab shell__tab--on' : 'shell__tab'}
-                onClick={() => pick(m.key)}
-              >
-                {m.label}
-              </button>
-            ))}
-          </span>
-        </div>
+        </span>
       </nav>
-
-      <div style={{ display: mode === 'applicant' ? 'block' : 'none' }}>
-        <ApplyFlow key={applicantKey} headerHost={applicantHeaderHost} />
-      </div>
-      <div style={{ display: mode === 'officer' ? 'block' : 'none' }}>
-        <OfficerConsole key={officerKey} />
-      </div>
+      <OfficerConsole key={officerKey} />
     </div>
   )
 }

@@ -1,3 +1,4 @@
+/** Officer API projections. The Vite dev server proxies /api to port 8000. */
 /** 백엔드 호출. vite dev 서버가 /api 를 :8000 으로 프록시한다. */
 
 import {
@@ -7,137 +8,8 @@ import {
   mockOfficerList,
   mockReviewDetail,
 } from './pages/officer/mock-data.ts'
-import { FORM_FIELD_KEYS } from './forms/form-field-bindings.ts'
 
-/**
- * 사업 설정. 화면 분기는 전부 이 값으로 한다.
- *
- * 컴포넌트 안에서 `code === 'job_package'` 같은 비교를 하지 않는 것이 규칙이다.
- * 두 사업의 차이(선발 방식·보완 정책·연령 기준·소득요건·지원 항목)는 서버가
- * 이 구조체 하나로 알려준다.
- */
-export interface Program {
-  code: string
-  name: string
-  announcement_date: string
-  document_cutoff: string
-  age_basis_date: string
-  birth_range: [string, string]
-  selection: 'scored' | 'first_come'
-  is_first_come: boolean
-  supplement_days: number | null
-  allows_supplement: boolean
-  has_income_requirement: boolean
-  has_work_requirement: boolean
-  has_subsidy_items: boolean
-  apply_period: [string, string]
-  /** 2차 모집이 있는 사업의 2차 신청 기간. 없으면 null. */
-  apply_period_2: [string, string] | null
-  quota_by_region: Record<string, number> | null
-  quota_total: number | null
-  /** 자가진단 문항 번호. 두배적금 8문항 / 취업패키지 2문항. */
-  self_check_items: number[]
-  /** 지원 항목표. 항목이 없는 사업은 null. */
-  subsidy_catalog: SubsidyCatalogItem[] | null
-  site_url: string
-  call_center: string
-  notes: string[]
-  /** 공고문 전문을 카드에 펼칠 사업만 채워진다. null이면 요약 행만 그린다. */
-  detail: ProgramDetail | null
-  /** 사업계획서 구조로 카드를 펼칠 사업만 채워진다. */
-  package_detail: PackageDetail | null
-}
-
-/** 신청서류 표의 「항목별 추가서류」 한 행. */
-export interface DocRow {
-  item: string
-  docs: string[]
-}
-
-/** 서류심사 절차 한 단계. */
-export interface ReviewStep {
-  title: string
-  points: string[]
-}
-
-/**
- * 사업계획서 「Ⅲ. 세부사업계획」 1~3절(사업신청·서류심사·지원금 지급).
- *
- * 금액·횟수·지원 항목은 여기 없다. 그 값은 `subsidy_catalog`가 유일한 출처다.
- * 필드 의미는 백엔드 `PackageDetail` 참조.
- */
-export interface PackageDetail {
-  early_close_note: string
-  target_points: string[]
-  apply_method: string
-  apply_items_note: string
-  common_docs: string[]
-  item_docs: DocRow[]
-  doc_cutoff_notice: string
-  review_steps: ReviewStep[]
-  supplement_notes: string[]
-  payment_methods: string[]
-}
-
-/** 적금 구조 한 행. 청년이 얼마를 넣으면 지자체가 얼마를 얹는지. */
-export interface SavingsPlan {
-  monthly_self: number
-  monthly_grant: number
-  months: number
-  maturity_label: string
-  note: string
-}
-
-/** 신청 절차 한 단계. `url`이 비어 있지 않으면 label 전체를 링크로 건다. */
-export interface ApplyStep {
-  label: string
-  url: string
-}
-
-/** 사업 선택 카드에 펼치는 공고문 상세. 필드 의미는 백엔드 `ProgramDetail` 참조. */
-export interface ProgramDetail {
-  target_summary: string
-  target_points: string[]
-  benefit_summary: string
-  savings_plan: SavingsPlan | null
-  announce_period: [string, string]
-  apply_open_time: string
-  apply_close_time: string
-  apply_method: string
-  apply_steps: ApplyStep[]
-  deadline_warning: string
-  cautions: string[]
-  missing_doc_examples: string[]
-  selection_methods: string[]
-}
-
-/** 취업지원패키지 지원 항목 1종 (사업계획서 「지원내용」 표). */
-export interface SubsidyCatalogItem {
-  item_type: string
-  label: string
-  description: string
-  unit_cap: number
-  max_count: number
-  count_scope: 'application' | 'year' | 'lifetime'
-  used_count?: number
-  remaining_count?: number
-  /** true면 실비(영수증 금액과 한도 중 작은 값), false면 정액. */
-  actual_cost: boolean
-  needs_receipt: boolean
-  max_amount: number
-  note: string
-  amount_label: string
-  count_label: string
-  extra_docs: string[]
-  performance_target: number | null
-}
-
-export interface SubsidySelection {
-  item_type: string
-  count: number
-  receipts: (number | null)[]
-  linked_interview_indices: (number | null)[]
-}
+import { YOUTH_PROGRAM, youthOfficerRole } from './officer-scope.ts'
 
 /** 지급 계산 한 줄. `calculation`이 "왜 이 금액인가"의 답이다. */
 export interface SubsidyLine {
@@ -160,25 +32,6 @@ export interface SubsidyEstimate {
   pending: boolean
 }
 
-export interface SubsidyState {
-  program_code: string
-  program_name: string
-  catalog: SubsidyCatalogItem[]
-  selections: SubsidySelection[]
-  estimate: SubsidyEstimate
-  notice: string
-}
-
-/** 선착순 접수 순번 (R6). 점수제 사업에서는 null. */
-export interface FirstComeInfo {
-  enabled: boolean
-  position: number
-  quota: number | null
-  remaining: number | null
-  submitted: boolean
-  notice: string
-}
-
 /** 서류 보완 기한 (E12). 보완이 없는 사업에서는 null. */
 export interface SupplementInfo {
   days: number | null
@@ -188,35 +41,6 @@ export interface SupplementInfo {
   expired: boolean
   targets: { label: string; reason: string }[]
   notice: string
-}
-
-export interface ApplicationRow {
-  id: number
-  application_no: string
-  program_code: string
-  status: string
-  form1_json: Record<string, unknown>
-  self_check_json: Record<string, string>
-  form5_json: Record<string, unknown>
-  identity_json: Partial<Identity> | null
-  eligibility_blockers?: Blocker[]
-}
-
-export interface SelfCheckResult {
-  eligible: boolean
-  completed: boolean
-  failed_item: number | null
-  reason: string
-  alternative: string
-  /** 이번 사업에서 물은 문항 수. 두배적금 8 / 취업패키지 2. */
-  total_items: number
-}
-
-export interface ConsentPayload {
-  consent_type: 'privacy' | 'unique_id' | 'third_party' | 'admin_info'
-  agreed: boolean
-  signature_data_url?: string
-  signature_kind?: 'electronic' | 'handwritten'
 }
 
 /** 업로드 즉시 판정 결과 한 줄. 사유만 주면 신청자는 또 전화한다 — 해결 방법과 발급처가 함께 온다. */
@@ -230,165 +54,6 @@ export interface Finding {
 
 export type DocStatus = 'PASS' | 'FAIL' | 'NEEDS_REVIEW'
 
-export interface UploadedDocument {
-  document_id: number
-  slot_key: string
-  file_name: string
-  file_format: string
-  /** 원본을 브라우저 안에서 여는 주소 (인라인 스트리밍) */
-  file_url: string
-  expected_doc_type: string | null
-  detected_doc_type: string | null
-  declared_issue_date: string | null
-  status: DocStatus | null
-  findings: Finding[]
-  extracted: Record<string, string>
-  ocr_confidence: number | null
-  elapsed_ms: number | null
-  page_index: number | null
-  uploaded_at: string
-}
-
-/** 체크리스트 한 줄. `upload`가 false면 온라인 작성으로 대체된 항목이다. */
-export interface DocRequirementRow {
-  slot_key: string
-  doc_type: string
-  /** 이 자리에 인정되는 서류들. 응시확인서 **또는** 성적표처럼 택1인 칸이 있다. */
-  doc_type_choices: string[]
-  /** 서류에 반드시 찍혀 있어야 하는 항목 (예: 응시확인서의 "응시일"). */
-  required_fields: string[]
-  label: string
-  required: boolean
-  upload: boolean
-  fulfilled_by: string
-  requires_signature: boolean
-  check_declared_date: boolean
-  date_basis: 'issue_date' | 'payment_date' | 'interview_date' | 'exam_date' | 'none'
-  date_basis_label: string
-  min_issue_date: string | null
-  max_issue_date: string | null
-  issue_rule_label: string
-  issuer: string
-  issuer_url: string
-  notes: string[]
-  warnings: string[]
-  alternatives: string[]
-  accept: string[]
-  documents: UploadedDocument[]
-}
-
-export interface DocContext {
-  work_category?: string | null
-  admin_fixed_term?: boolean
-  workplace_count?: number
-  handwritten_admin_consent?: boolean
-  paper_forms?: Record<string, boolean>
-}
-
-/** 업로드 화면이 사업 코드로 분기하지 않도록 서버가 내려주는 안내. */
-export interface ChecklistProgram {
-  code: string
-  name: string
-  selection: 'scored' | 'first_come'
-  allows_supplement: boolean
-  supplement_days: number | null
-  document_cutoff: string
-  announcement_date: string
-  application_period: string[]
-  application_period_2: string[] | null
-  asks_work_category: boolean
-  has_subsidy_items: boolean
-  paper_forms: Record<string, boolean>
-}
-
-export interface Checklist {
-  context: DocContext
-  program: ChecklistProgram
-  work_categories: string[]
-  accepted_formats: string[]
-  items: DocRequirementRow[]
-  upload_total: number
-  upload_done: number
-  unassigned: UploadedDocument[]
-  /** 판정 컷라인 등 TF 미확정 가정값 안내. `(데모 추정치)` 라벨이 붙어 온다. */
-  assumption_notes: string[]
-}
-
-export interface MergedUploadResult {
-  mode: 'merged'
-  source_file: string
-  page_count: number
-  assigned: UploadedDocument[]
-  unassigned: UploadedDocument[]
-}
-
-/** 제출을 막는 항목 하나. `goto`는 "어디로 가면 고칠 수 있는가"다. */
-export interface Blocker {
-  kind: 'form' | 'consent' | 'document' | 'context' | 'subsidy' | 'eligibility'
-  target: string
-  label: string
-  message: string
-  goto: 'form1' | 'consent' | 'upload' | 'subsidy'
-}
-
-export interface FinalCheck {
-  application_no: string
-  program_code: string
-  program_name: string
-  allows_supplement: boolean
-  supplement_days: number | null
-  selection: 'scored' | 'first_come'
-  first_come: FirstComeInfo | null
-  subsidy: SubsidyEstimate | null
-  status: string
-  can_submit: boolean
-  already_submitted: boolean
-  blockers: Blocker[]
-  warnings: string[]
-  form_summary: { label: string; value: string }[]
-  documents: UploadedDocument[]
-}
-
-export interface SubmitResult {
-  application_no: string
-  submitted_at: string | null
-  status: string
-  message: string
-  next_steps: string[]
-  first_come: FirstComeInfo | null
-  supplement: SupplementInfo | null
-  subsidy: SubsidyEstimate | null
-  notice: string
-}
-
-/**
- * 마이페이지 응답.
- *
- * ⚠️ 점수 필드가 없는 것이 사양이다 (공고문: "평가결과는 공개하지 않음").
- * 이 인터페이스에 점수·구간·순위를 추가하면 안 된다.
- */
-export interface ApplicationStatus {
-  application_no: string
-  program_code: string
-  program_name: string
-  status: string
-  submitted_at: string | null
-  progress: { label: string; state: 'done' | 'current' | 'todo' }[]
-  result_notice: string
-  first_come: FirstComeInfo | null
-  supplement: SupplementInfo | null
-  subsidy: SubsidyEstimate | null
-  documents: UploadedDocument[]
-  consents: {
-    consent_type: string
-    label: string
-    agreed: boolean
-    agreed_at: string
-    signature_kind: string | null
-  }[]
-  call_center: string
-}
-
 async function json<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
@@ -398,42 +63,19 @@ async function json<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-/** 파일 업로드는 multipart라 Content-Type을 브라우저가 붙이게 둔다. */
-async function form<T>(path: string, body: FormData): Promise<T> {
-  const res = await fetch(path, { method: 'POST', body })
-  if (!res.ok) {
-    const detail = (await res.json().catch(() => null)) as { detail?: string } | null
-    throw new Error(detail?.detail ?? `업로드 실패 (${res.status})`)
-  }
-  return res.json() as Promise<T>
-}
-
-export async function uploadSignatureScan(id: number, file: File): Promise<void> {
-  const body = new FormData()
-  body.append('file', file)
-  await form<{ uploaded: boolean }>(`/api/applications/${id}/forms/signature-scan`, body)
-}
-
-export async function deleteSignatureScan(id: number): Promise<void> {
-  const res = await fetch(`/api/applications/${id}/forms/signature-scan`, { method: 'DELETE' })
-  if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as { detail?: string } | null
-    throw new Error(data?.detail ?? `서명 이미지 삭제 실패 (${res.status})`)
-  }
-}
-
-export const fetchPrograms = () => json<Program[]>('/api/programs')
-
 export type IssueRule = { mode: 'after_date' | 'after_notice' | 'within_days' | 'none'; date?: string; days?: number }
+
 export type CriteriaSubsidyDoc = {
   suffix: string; doc_type: string; label: string; accepted: string[]; required_fields: string[];
   notes: string[]; warnings: string[]; date_basis: 'issue_date' | 'payment_date' | 'interview_date' | 'exam_date' | 'none'
 }
+
 export type CriteriaSubsidyItem = {
   item_type: string; label: string; description: string; unit_cap: number; max_count: number;
   count_scope: 'application' | 'year' | 'lifetime'
   actual_cost: boolean; note: string; extra_docs: CriteriaSubsidyDoc[]
 }
+
 export interface CriteriaData {
   version: number
   announcement_date: string
@@ -448,210 +90,18 @@ export interface CriteriaData {
   subsidy_catalog: CriteriaSubsidyItem[]
   paper_forms: Record<string, boolean>
 }
+
 export interface CriteriaVersion extends CriteriaData { changed_at?: string; changed_role?: string }
+
 export interface CriteriaHistory { current: CriteriaVersion; history: CriteriaVersion[] }
-export const fetchProgramCriteria = (code: string) => json<CriteriaData>(`/api/programs/${code}/criteria`)
+
 export const fetchOfficerCriteria = (code: string, role = 'province') =>
   json<CriteriaHistory>(`/api/officer/programs/${code}/criteria?role=${encodeURIComponent(role)}`)
+
 export const saveOfficerCriteria = (code: string, role: string, data: Omit<CriteriaData, 'version'>) =>
   json<CriteriaVersion>(`/api/officer/programs/${code}/criteria?role=${encodeURIComponent(role)}`, {
     method: 'PUT', body: JSON.stringify(data),
   })
-
-export const createApplication = (programCode: string) =>
-  json<ApplicationRow>('/api/applications', {
-    method: 'POST',
-    body: JSON.stringify({ program_code: programCode }),
-  })
-
-export const fetchApplication = (id: number) =>
-  json<ApplicationRow>(`/api/applications/${id}`)
-
-export const fetchApplicationConsents = (id: number) =>
-  json<{ consent_type: string; agreed: boolean }[]>(`/api/applications/${id}/consents`)
-
-export const patchApplication = (
-  id: number,
-  body: { form1?: unknown; self_check?: unknown; form5?: unknown },
-) =>
-  json<ApplicationRow>(`/api/applications/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  })
-
-export interface FormFieldLayout {
-  type: 'text' | 'check' | 'image'
-  control?: 'radio_text'
-  page: number
-  box: [number, number, number, number]
-  label_box?: [number, number, number, number]
-  click_box?: [number, number, number, number]
-  choice_box?: [number, number, number, number]
-  choice_group_box?: [number, number, number, number]
-  cell_box?: [number, number, number, number]
-  x?: number
-  y?: number
-  size?: number
-  align?: 'left' | 'center'
-  format?: 'yyyy' | 'yy' | 'none'
-  auto_date?: boolean
-  date_part?: 'year' | 'month' | 'day'
-  date_reference?: { size: number; baseline: number; render_baseline: number; render_size_scale: number; character: string; font_family: 'serif' | 'sans'; glyph_box: [number, number, number, number] }
-  group_box?: [number, number, number, number]
-  font_family?: 'serif' | 'sans'
-  anchor?: string
-  label?: string
-}
-
-export interface FormLayout {
-  form_no: string
-  title: string
-  public_form: string | null
-  page_sizes: { width: number; height: number }[]
-  fields: Record<string, FormFieldLayout>
-  requirements?: ({ kind: 'all_or_none'; fields: string[] } | { kind: 'when_choice'; field: string; equals: string; required: string[] })[]
-  masks?: { page: number; box: [number, number, number, number] }[]
-  auto_date: string
-}
-
-export interface ApplicantFormSummary {
-  form_no: string
-  public_form: string | null
-  title: string
-  label: string
-  file_url: string
-  file_name: string
-  hwp_available: boolean
-}
-
-export const fetchOriginalHwpOptions = (id: number) =>
-  json<{ url: string | null; label: string | null }>(`/api/applications/${id}/forms/files/original-hwp/options`)
-export const fetchInterviewFormFileOptions = (id: number) =>
-  json<{ blank: string; hwp: string | null }>(`/api/applications/${id}/forms/files/job_interview_confirmation/options`)
-
-export const fetchFormLayout = async (id: number, formNo: string): Promise<FormLayout> => {
-  const layout = await json<FormLayout>(`/api/applications/${id}/forms/layouts/${encodeURIComponent(formNo)}`)
-  const bindings = FORM_FIELD_KEYS[formNo] || []
-  const fields = Object.fromEntries(Object.entries(layout.fields).map(([opaqueId, field], index) => [bindings[index] || opaqueId, field]))
-  const keyById = Object.fromEntries(bindings.map((key, index) => [`f${String(index).padStart(4, '0')}`, key]))
-  const requirements = (layout.requirements || []).map((rule) => rule.kind === 'all_or_none'
-    ? { ...rule, fields: rule.fields.map((key) => keyById[key] || key) }
-    : { ...rule, field: (keyById[rule.field] || rule.field).split('.')[0], required: rule.required.map((key) => keyById[key] || key) })
-  return { ...layout, fields, requirements }
-}
-
-export const fetchApplicantForms = (id: number) =>
-  json<ApplicantFormSummary[]>(`/api/applications/${id}/forms`)
-
-/** 본인인증 결과. 서류 본인 대조의 기준이 된다 (연락처는 가려서 돌아온다). */
-export interface Identity {
-  name: string
-  birth: string
-  phone: string
-  method: string
-  verified_at: string
-}
-
-export interface IdentityPayload {
-  name: string
-  /** YYYY-MM-DD */
-  birth: string
-  phone: string
-  pledge: boolean
-  signature_data_url: string
-  /** electronic(화면에 직접 서명) | uploaded(서명 파일 올리기) */
-  signature_kind: 'electronic' | 'uploaded'
-}
-
-/** 본인인증 (데모). 실패 사유는 서버 문구 그대로 보여준다. */
-export async function verifyIdentity(id: number, body: IdentityPayload): Promise<Identity> {
-  const res = await fetch(`/api/applications/${id}/identity`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const data = (await res.json().catch(() => null)) as
-    | { identity?: Identity; detail?: string }
-    | null
-  if (!res.ok || !data?.identity) {
-    throw new Error(data?.detail ?? `본인인증 실패 (${res.status})`)
-  }
-  return data.identity
-}
-
-export const postSelfCheck = (id: number, answers: Record<string, string>) =>
-  json<SelfCheckResult>(`/api/applications/${id}/self-check`, {
-    method: 'POST',
-    body: JSON.stringify({ answers }),
-  })
-
-export const postConsents = (id: number, consents: ConsentPayload[]) =>
-  json<{ saved: unknown[] }>(`/api/applications/${id}/consents`, {
-    method: 'POST',
-    body: JSON.stringify({ consents }),
-  })
-
-export const fetchChecklist = (id: number) =>
-  json<Checklist>(`/api/applications/${id}/required-documents`)
-
-/** 근로유형 등을 저장하고 바뀐 체크리스트를 바로 받는다. */
-export const putDocContext = (id: number, context: DocContext) =>
-  json<Checklist>(`/api/applications/${id}/doc-context`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      work_category: context.work_category ?? null,
-      admin_fixed_term: context.admin_fixed_term ?? false,
-      workplace_count: context.workplace_count ?? 1,
-      handwritten_admin_consent: context.handwritten_admin_consent ?? false,
-      paper_forms: context.paper_forms ?? {},
-    }),
-  })
-
-export function uploadDocument(
-  id: number,
-  slotKey: string,
-  file: File,
-  declaredIssueDate: string,
-) {
-  const body = new FormData()
-  body.append('file', file)
-  body.append('slot_key', slotKey)
-  if (declaredIssueDate) body.append('declared_issue_date', declaredIssueDate)
-  return form<UploadedDocument>(`/api/applications/${id}/documents`, body)
-}
-
-/** 여러 서류를 한 파일로 올린 경우. 페이지별로 쪼개 슬롯에 자동 배정한다. */
-export function uploadMerged(id: number, file: File) {
-  const body = new FormData()
-  body.append('file', file)
-  body.append('slot_key', 'auto')
-  return form<MergedUploadResult>(`/api/applications/${id}/documents`, body)
-}
-
-export const deleteDocument = (id: number, documentId: number) =>
-  json<{ deleted: string }>(`/api/applications/${id}/documents/${documentId}`, {
-    method: 'DELETE',
-  })
-
-/** 취업지원패키지 지원 항목 — 저장된 선택과 예상 지원금. */
-export const fetchSubsidyItems = (id: number) =>
-  json<SubsidyState>(`/api/applications/${id}/subsidy-items`)
-
-/** 고른 항목을 통째로 저장하고, 다시 계산된 지급액을 받는다. */
-export const saveSubsidyItems = (id: number, items: SubsidySelection[]) =>
-  json<SubsidyState>(`/api/applications/${id}/subsidy-items`, {
-    method: 'POST',
-    body: JSON.stringify({ items }),
-  })
-
-export const fetchFinalCheck = (id: number) =>
-  json<FinalCheck>(`/api/applications/${id}/final-check`)
-
-export const submitApplication = (id: number) =>
-  json<SubmitResult>(`/api/applications/${id}/submit`, { method: 'POST' })
-
-export const fetchStatus = (id: number) =>
-  json<ApplicationStatus>(`/api/applications/${id}/status`)
 
 /* ------------------------------------------------------------------ 담당자 화면
  *
@@ -685,48 +135,9 @@ export interface OfficerRole {
   scope: string
   requires_region: boolean
   requires_town: boolean
-  /** 정원 대비 몇 %까지 선발하는 단계인가. null이면 선발 권한이 없다. */
-  quota_ratio: number | null
   can_bulk: boolean
   notes: string[]
   actions: OfficerAction[]
-}
-
-export interface QuotaRow {
-  region: string
-  quota: number
-  applied: number
-  selected: number
-  limit_120: number
-  cutoff_120: number | null
-  cutoff_100: number | null
-  role_cutoff: number | null
-  rate_percent: number
-}
-
-/**
- * 목록의 서류 칸 하나 (`doc:<slot_key>` 컬럼이 읽는 값).
- *
- * **왜 컬럼별 객체가 아니라 배열인가**: `기타` 칸에는 여러 장이 들어갈 수 있다 —
- * 근로계약서 사본, 2번째 사업장 근로확인서류, 어느 슬롯에도 안 붙은 병합 페이지가
- * 한 칸에 같이 온다. 컬럼 키로 나눈 dict였으면 그 자리에서 값이 하나로 눌린다.
- */
-export interface OfficerRowDoc {
-  /** 어느 서류 컬럼에 들어가는가. 고정 슬롯 키 또는 `__other__`. */
-  column: string
-  /** 실제 슬롯 키. 미배정 병합 페이지는 `__unassigned__`. */
-  slot_key: string
-  /** 체크리스트가 정한 이 신청자의 서류명. 툴팁·aria-label이 쓰는 전체 이름. */
-  label: string
-  /** 칸 안에 찍는 짧은 이름. 고정 4칸은 빈 문자열 — 헤더가 이름을 쥔다. */
-  short_label: string
-  /** null이면 아직 안 낸 서류다. */
-  status: DocStatus | null
-  /** '적합' / '확인필요' / '부적합' / '미제출'. */
-  status_label: string
-  /** 상세에서 열 서류. 미제출이면 null이고 그 칸은 눌리지 않는다. */
-  document_id: number | null
-  required: boolean
 }
 
 export interface OfficerRow {
@@ -739,15 +150,12 @@ export interface OfficerRow {
   program_name: string
   ai_status: DocStatus | null
   ai_status_label: string
-  total_score: number | null
-  max_total: number | null
   missing_count: number
   submitted_at: string | null
   status: string
   decision: DecisionKey | null
   decision_label: string
   officer_role: string | null
-  rank: number | null
   /**
    * 신청한 지원 항목 요약 ("면접비 2회 · 자격증 응시료 1회").
    *
@@ -755,14 +163,7 @@ export interface OfficerRow {
    * 신청했는가"다. 점수제 사업에서는 비어 온다.
    */
   items_label?: string | null
-  /**
-   * 이 신청자가 낸 서류의 칸별 상태. 서류 컬럼(`doc:*`)이 읽는다.
-   *
-   * **옵셔널인 이유**: 담당자 화면은 백엔드 응답이 어긋나면 목업으로 넘어가는 구조라,
-   * 이 필드가 없는 구버전 응답에서 화면이 터지는 것보다 빈 칸으로 그리는 편이 낫다.
-   * 서류 컬럼을 안 쓰는 사업(취업패키지)에서도 빈 배열로 온다.
-   */
-  documents?: OfficerRowDoc[]
+
 }
 
 export interface OfficerListQuery {
@@ -798,13 +199,10 @@ export interface OfficerList {
   }
   /**
    * 목록 컬럼. 표의 헤더와 셀이 **둘 다** 이 배열을 따른다. 사업에 따라 컬럼이
-   * 달라진다 — 점수제는 `total_score`, 선착순은 `items`가 온다.
+   * 달라져도 같은 배열로 헤더와 셀을 렌더링한다.
    */
   columns: { key: string; label: string }[]
-  /** 순위 칸 표기. 선착순 사업은 "순번"이다. 없으면 "순위". */
-  rank_label?: string
-  quota: QuotaRow[]
-  /** 선착순 사업을 고른 경우의 접수 진행률. 점수제 사업에서는 null. */
+  /** 취업지원패키지 접수 진행률. */
   first_come: {
     program_code: string
     program_name: string
@@ -821,35 +219,6 @@ export interface OfficerList {
   page_size: number
   page_count: number
   rows: OfficerRow[]
-}
-
-/** 심사표 한 줄. `bbox`와 `source_file_url`이 좌측 원본 하이라이트의 좌표다 (R4.3). */
-export interface ScoreItemRow {
-  key: string
-  label: string
-  score: number
-  max_score: number
-  band: string
-  basis: string
-  source_doc: string | null
-  source_document_id: number | null
-  source_origin: string
-  bbox: BBox | null
-  incomplete: boolean
-  source_slot_key: string | null
-  source_file_url: string | null
-  source_file_format: string | null
-}
-
-export interface ScoreSheetData {
-  items: ScoreItemRow[]
-  total: number
-  max_total: number
-  income_percent: number | null
-  income_over_limit: boolean
-  incomplete: boolean
-  tiebreak: number[]
-  notes: string[]
 }
 
 export interface OfficerDocument {
@@ -917,10 +286,7 @@ export interface ReviewDetailData {
     recommended_action: string
     reasons: { stage: string; code: string; message: string; doc_type: string | null }[]
   }
-  score_sheet: ScoreSheetData
-  /** 선발 방식. 선착순 사업에는 심사표가 없다. */
-  selection: 'scored' | 'first_come'
-  /** 취업패키지 항목별 지급 내역. 점수제 사업에서는 null. */
+  /** 취업지원패키지 항목별 지급 내역. */
   subsidy: SubsidyEstimate | null
   /** 7일 보완 기한. 보완이 없는 사업이거나 보완 대상이 아니면 null. */
   supplement: SupplementInfo | null
@@ -963,62 +329,79 @@ function query(params: Record<string, unknown>): string {
  * `?mock=0`을 붙이면 어떤 경우에도 목업을 쓰지 않는다 — 실제 접수 건이 0건인 것을
  * 확인해야 할 때 쓴다.
  */
-const MOCK_PARAM = new URLSearchParams(window.location.search).get('mock')
-const MOCK_FORCED = MOCK_PARAM === '1' || MOCK_PARAM === 'on'
-const MOCK_BLOCKED = MOCK_PARAM === '0' || MOCK_PARAM === 'off'
+function mockMode() {
+  const value = new URLSearchParams(window.location.search).get('mock')
+  return { forced: value === '1' || value === 'on', blocked: value === '0' || value === 'off' }
+}
 
-let mockActive = MOCK_FORCED
+let mockActive = false
 
-/** 지금 담당자 화면이 목업을 보고 있는가. 화면 상단 배너가 이 값을 읽는다. */
-export const isOfficerMockActive = () => mockActive
+export const isOfficerMockActive = () => {
+  const mode = mockMode()
+  return !mode.blocked && (mode.forced || mockActive)
+}
+
+const youthList = (list: OfficerList): OfficerList => ({
+  ...list,
+  role: youthOfficerRole(list.role),
+  columns: list.columns.filter((column) => column.key !== 'total_score'),
+  filters: {
+    ...list.filters,
+    programs: list.filters.programs.filter((program) => program.code === YOUTH_PROGRAM),
+    sorts: [{ value: 'submitted', label: '접수순 (선착순)' }],
+  },
+  rows: list.rows.filter((row) => row.program_code === YOUTH_PROGRAM),
+})
 
 export const fetchOfficerRoles = async (): Promise<OfficerRole[]> => {
-  if (mockActive) return MOCK_ROLES
+  if (isOfficerMockActive()) return MOCK_ROLES.map(youthOfficerRole)
   try {
-    return await json<OfficerRole[]>('/api/officer/roles')
-  } catch (e) {
-    if (MOCK_BLOCKED) throw e
+    return (await json<OfficerRole[]>('/api/officer/roles')).map(youthOfficerRole)
+  } catch (error) {
+    if (mockMode().blocked) throw error
     mockActive = true
-    return MOCK_ROLES
+    return MOCK_ROLES.map(youthOfficerRole)
   }
 }
 
 export const fetchOfficerList = async (params: OfficerListQuery): Promise<OfficerList> => {
-  if (mockActive) return mockOfficerList(params)
+  const scoped = { ...params, program: YOUTH_PROGRAM, sort: 'submitted' }
+  if (isOfficerMockActive()) return youthList(mockOfficerList(scoped))
   try {
-    const body = await json<OfficerList>(`/api/officer/applications?${query({ ...params })}`)
-    // 필터를 걸어 0건인 것과 접수 자체가 0건인 것은 다르다. 후자일 때만 목업으로 넘어간다.
-    const unfiltered =
-      !params.program && !params.status && !params.ai_status && !params.submitted_from && !params.submitted_to
-    if (body.total === 0 && unfiltered && !MOCK_BLOCKED) {
+    const body = await json<OfficerList>(`/api/officer/applications?${query(scoped)}`)
+    const unfiltered = !params.region && !params.town && !params.status && !params.ai_status
+      && !params.submitted_from && !params.submitted_to
+    if (body.total === 0 && unfiltered && !mockMode().blocked) {
       mockActive = true
-      return mockOfficerList(params)
+      return youthList(mockOfficerList(scoped))
     }
-    return body
-  } catch (e) {
-    if (MOCK_BLOCKED) throw e
+    return youthList(body)
+  } catch (error) {
+    if (mockMode().blocked) throw error
     mockActive = true
-    return mockOfficerList(params)
+    return youthList(mockOfficerList(scoped))
   }
 }
 
-export const fetchReviewDetail = (applicationId: number, role: string) =>
-  mockActive || isMockId(applicationId)
-    ? Promise.resolve(mockReviewDetail(applicationId, role))
-    : json<ReviewDetailData>(`/api/officer/applications/${applicationId}?${query({ role })}`)
+export const fetchReviewDetail = async (applicationId: number, role: string): Promise<ReviewDetailData> => {
+  // A real youth detail ID must keep working even after an empty list activated mock mode.
+  const detail = isMockId(applicationId) && !mockMode().blocked
+    ? mockReviewDetail(applicationId, role)
+    : await json<ReviewDetailData>(`/api/officer/applications/${applicationId}?${query({ role })}`)
+  if (detail.program_code !== YOUTH_PROGRAM) {
+    throw new Error('이 화면에서는 청년 취업지원패키지 신청만 확인할 수 있습니다.')
+  }
+  return { ...detail, role: youthOfficerRole(detail.role) }
+}
 
 export const postDecision = (
   applicationId: number,
   body: { role: string; decision: DecisionKey; memo: string },
 ) => {
-  if (mockActive || isMockId(applicationId)) {
+  if (isMockId(applicationId) && !mockMode().blocked) {
     mockDecide([applicationId], body.role, body.decision, body.memo)
     const detail = mockReviewDetail(applicationId, body.role)
-    return Promise.resolve({
-      decision: body.decision,
-      label: detail.decision.label,
-      decided_at: detail.decision.decided_at,
-    })
+    return Promise.resolve({ decision: body.decision, label: detail.decision.label, decided_at: detail.decision.decided_at })
   }
   return json<{ decision: string; label: string; decided_at: string | null }>(
     `/api/officer/applications/${applicationId}/decision`,
@@ -1032,13 +415,10 @@ export const postBulkDecision = (body: {
   memo: string
   application_ids: number[]
 }) => {
-  if (mockActive) {
-    return Promise.resolve({
-      processed: mockDecide(body.application_ids, body.role, body.decision, body.memo),
-    })
+  if (!mockMode().blocked && body.application_ids.every(isMockId)) {
+    return Promise.resolve({ processed: mockDecide(body.application_ids, body.role, body.decision, body.memo) })
   }
   return json<{ processed: number }>('/api/officer/applications/decisions', {
-    method: 'POST',
-    body: JSON.stringify(body),
+    method: 'POST', body: JSON.stringify(body),
   })
 }

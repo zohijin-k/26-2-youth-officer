@@ -1,0 +1,29 @@
+{
+  "id": "youth-officer-only",
+  "name": "youth-officer-only",
+  "title": "청년 취업지원패키지 담당자 전용 저장소 정리",
+  "description": "Implement approved youth-officer frontend and documentation cleanup, preserve backend and youth deep links, verify four groups and browser behavior, then stop before commits.",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-11-13",
+  "completedAt": null,
+  "branch": "refactor/youth-officer-only",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "Precommit scope audit complete: reverted both outside-task specs. Commit2 now12modified/14added. No Playwright scripts/raw artifacts committed. StatusBadge retained; unused export removal resolves warning; no lint config/suppression added. No staging/commit/push.",
+  "meta": {
+    "approval_checkpoint": "precommit_scope_audit_complete_waiting_user",
+    "pr_description_note": "커밋 1은 삭제 전용이며 단독으로는 build가 실패합니다. 커밋 2까지 적용해야 정상 상태입니다."
+  }
+}

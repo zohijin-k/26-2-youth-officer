@@ -24,21 +24,26 @@ import ReviewDetail from './ReviewDetail.tsx'
 import CriteriaEditor from '../../components/CriteriaEditor.tsx'
 import { Skeleton, SkeletonBlock, SkeletonLine } from '../../components/Skeleton.tsx'
 import useDelayedFlag from '../../hooks/useDelayedFlag.ts'
-import { currentMode, currentParams, routeUrl } from '../../navigation-url.ts'
+import { currentParams, routeUrl } from '../../navigation-url.ts'
+import { YOUTH_PROGRAM } from '../../officer-scope.ts'
+import { isMockId } from './mock-data.ts'
 import './officer.css'
 
-const DEFAULT_QUERY: OfficerListQuery = { role: 'province', page: 1, page_size: 20 }
+const DEFAULT_QUERY: OfficerListQuery = { role: 'province', program: YOUTH_PROGRAM, sort: 'submitted', page: 1, page_size: 20 }
 const QUERY_KEYS = [
-  'region', 'town', 'program', 'status', 'ai_status', 'submitted_from', 'submitted_to', 'sort',
+  'region', 'town', 'status', 'ai_status', 'submitted_from', 'submitted_to',
 ] as const
 
 function savedOfficerPage(): {
   query: OfficerListQuery
   open: { id: number; slot: string | null } | null
   showCriteria: boolean
-  criteriaProgram: string
 } | null {
   const params = currentParams()
+  // 제거된 신청 화면·사업 경로만 목록으로 보낸다. 취업패키지 상세 ID는 그대로 복원한다.
+  if (window.location.pathname.startsWith('/apply')
+    || /(?:double_savings|doubling_savings|double-savings)/.test(window.location.pathname)
+    || (!window.location.pathname.startsWith('/officer') && params.get('mode') === 'applicant')) return null
   const detailRoute = /^\/officer(?:\/([^/]+))?(?:\/review\/([1-9]\d*))?\/?$/.exec(window.location.pathname)
   const criteriaRoute = /^\/officer\/criteria\/([^/]+)\/?$/.exec(window.location.pathname)
   const legacy = [...QUERY_KEYS.map((key) => `o_${key}`), 'o_role', 'o_page', 'o_page_size', 'o_open', 'o_slot', 'o_criteria', 'o_criteria_program'].some((key) => params.has(key))
@@ -59,8 +64,7 @@ function savedOfficerPage(): {
   return {
     query,
     open: Number.isSafeInteger(openId) && openId > 0 ? { id: openId, slot: params.get('slot') ?? params.get('o_slot') } : null,
-    showCriteria: criteriaRoute !== null || params.get('o_criteria') === '1',
-    criteriaProgram: criteriaRoute?.[1] === 'job_package' || params.get('o_criteria_program') === 'job_package' ? 'job_package' : 'double_savings',
+    showCriteria: criteriaRoute?.[1] === YOUTH_PROGRAM || (params.get('o_criteria') === '1' && params.get('o_criteria_program') !== 'double_savings'),
   }
 }
 
@@ -81,7 +85,6 @@ export default function OfficerConsole() {
   /** 목업으로 넘어갔는지는 목록을 한 번 읽어 봐야 안다 — 응답이 온 뒤에 다시 잰다. */
   const [mock, setMock] = useState(isOfficerMockActive())
   const [showCriteria, setShowCriteria] = useState(initialPage?.showCriteria ?? false)
-  const [criteriaProgram, setCriteriaProgram] = useState(initialPage?.criteriaProgram ?? 'double_savings')
   const showListSkeleton = useDelayedFlag(!list && !error && !showCriteria && open === null)
 
   useEffect(() => {
@@ -103,9 +106,8 @@ export default function OfficerConsole() {
   useEffect(reload, [reload])
 
   useEffect(() => {
-    if (currentMode() !== 'officer') return
     const path = showCriteria
-      ? `/officer/criteria/${criteriaProgram}`
+      ? `/officer/criteria/${YOUTH_PROGRAM}`
       : open ? `/officer/${encodeURIComponent(query.role)}/review/${open.id}`
         : query.role === DEFAULT_QUERY.role ? '/officer' : `/officer/${encodeURIComponent(query.role)}`
     const params: Record<string, string | null> = {
@@ -116,10 +118,10 @@ export default function OfficerConsole() {
     for (const key of QUERY_KEYS) params[key === 'ai_status' ? 'ai' : key] = query[key] ?? null
     routeUrl(path, params, initialUrlWrite.current)
     initialUrlWrite.current = false
-  }, [query, open, showCriteria, criteriaProgram])
+  }, [query, open, showCriteria])
 
   const patch = (next: Partial<OfficerListQuery>) => {
-    setQuery((prev) => ({ ...prev, ...next }))
+    setQuery((prev) => ({ ...prev, ...next, program: YOUTH_PROGRAM, sort: 'submitted' }))
     setSelected([])
   }
 
@@ -153,10 +155,10 @@ export default function OfficerConsole() {
   return (
     <div className="officer">
       <header className="officer__head">
-        <h1>담당자 심사</h1>
+        <h1>청년 취업지원패키지 신청 목록</h1>
         {/* 목업을 보고 있다는 사실을 숨기지 않는다. 이 배너가 없으면 시연을 보는
             사람이 실제 접수 건으로 오해한다. */}
-        {mock && (
+        {mock && (open === null || isMockId(open.id)) && (
           <p className="officer__mock">
             <strong>목업 데이터</strong> 실제 접수 건이 없어 예시로 채운 화면입니다. 판단
             버튼은 눌리지만 브라우저 메모리에만 남고 새로고침하면 되돌아갑니다.
@@ -178,9 +180,6 @@ export default function OfficerConsole() {
         {activeRole && (
           <p className="officer__scope">
             <strong>{activeRole.stage}</strong> · 보이는 범위: {activeRole.scope}
-            {activeRole.quota_ratio !== null && (
-              <> · 선발 {Math.round(activeRole.quota_ratio * 100)}%</>
-            )}
           </p>
         )}
         {query.role === 'province' && <button type="button" className="officer__criteria-tab" onClick={() => setShowCriteria((v) => !v)}>
@@ -198,15 +197,7 @@ export default function OfficerConsole() {
       {error && <p className="officer__error">{error}</p>}
 
       {showCriteria && query.role === 'province' ? (
-        <>
-          <label className="officer__criteria-select">사업 선택
-            <select value={criteriaProgram} onChange={(e) => setCriteriaProgram(e.target.value)}>
-              <option value="double_savings">전북청년 함께 두배적금</option>
-              <option value="job_package">청년 취업지원 패키지</option>
-            </select>
-          </label>
-          <CriteriaEditor code={criteriaProgram} />
-        </>
+        <CriteriaEditor />
       ) : open !== null ? (
         <ReviewDetail
           // 같은 건의 다른 서류로 다시 들어올 때 초기 탭 선택이 확실히 다시 돌게
@@ -231,11 +222,11 @@ export default function OfficerConsole() {
         />
       ) : showListSkeleton ? (
         <Skeleton className="officer__table-skeleton">
-          <div className="filters officer__filters-skeleton">{['사업', '처리상태', 'AI판정', '신청일', '정렬'].map((label) => <label key={label}>{label}<SkeletonBlock className="officer__filter-control" /></label>)}</div>
+          <div className="filters officer__filters-skeleton">{['처리상태', 'AI판정', '신청일', '정렬'].map((label) => <label key={label}>{label}<SkeletonBlock className="officer__filter-control" /></label>)}</div>
           <div className="bulk officer__bulk-skeleton"><span>선택 0건</span><button type="button" className="btn" disabled aria-disabled="true">일괄 처리</button><button type="button" className="btn" disabled aria-disabled="true">일괄 확인</button></div>
           <div className="grid-scroll"><div className="officer__table-skeleton-grid">
-            <div className="officer__table-skeleton-head">{['순위', '접수번호', '신청자', '지역', '서류', 'AI 판정', '점수', '상태', '접수일', '기타', '기타', '기타'].map((label, index) => <span key={`${label}-${index}`}>{label}</span>)}</div>
-            {Array.from({ length: 8 }, (_, row) => <div className="officer__table-skeleton-row" key={row}>{Array.from({ length: 12 }, (_, col) => <SkeletonLine key={col} width={col === 2 ? '78%' : '64%'} />)}</div>)}
+            <div className="officer__table-skeleton-head">{['순번', '접수번호', '신청자', '지역', '신청 항목', 'AI 판정', '미비 서류', '접수일', '처리 상태'].map((label, index) => <span key={`${label}-${index}`}>{label}</span>)}</div>
+            {Array.from({ length: 8 }, (_, row) => <div className="officer__table-skeleton-row" key={row}>{Array.from({ length: 9 }, (_, col) => <SkeletonLine key={col} width={col === 2 ? '78%' : '64%'} />)}</div>)}
           </div></div>
         </Skeleton>
       ) : null}

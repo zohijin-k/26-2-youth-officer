@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Component, routing and shared-asset guidelines for the merged frontend"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Frontend review checklist"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Baselines and synthetic-data rules"}
+{"file": ".trellis/tasks/11-14-merge-youth-applicant/research/merge-analysis.md", "reason": "Verified facts about the two tips, silent losses and baselines"}

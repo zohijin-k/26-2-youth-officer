@@ -2,7 +2,7 @@ import type { DocStatus } from '../api.ts'
 
 type Audience = 'applicant' | 'officer'
 
-export const APPLICANT_DOCUMENT_STATUS = {
+const APPLICANT_DOCUMENT_STATUS = {
   PASS: { label: '확인 완료', icon: '✓' },
   NEEDS_REVIEW: { label: '담당자 확인 예정', icon: '?' },
   FAIL: { label: '다시 올려 주세요', icon: '↻' },

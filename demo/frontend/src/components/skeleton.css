@@ -70,7 +70,7 @@
 .dupload__skeleton-slot { min-height: 136px; display: grid; align-content: start; gap: 16px; }
 .mypage__head p .skeleton__line { display: inline-block; vertical-align: middle; }
 .dslot__head-meta { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
-.status-badge--loading { color: var(--muted); border-color: var(--border-strong); background: var(--surface-subtle); }
+.status-badge--loading { color: var(--muted); background: var(--surface-subtle); }
 .dslot__spinner { width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: dslot-spin 800ms linear infinite; }
 @keyframes dslot-spin { to { transform: rotate(360deg); } }
 .dresult--loading .dresult__kind--loading { cursor: default; border-color: var(--border); background: var(--surface-subtle); }

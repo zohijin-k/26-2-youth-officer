@@ -23,19 +23,24 @@ const TITLES: Record<Mode, string> = {
 }
 
 export default function App() {
-  const [mode, setMode] = useState<Mode>(currentMode)
+  /** 문서를 불러올 때 한 번 정한다. 다른 화면으로는 새로 불러와야만 넘어간다. */
+  const [mode] = useState<Mode>(currentMode)
   /** 값이 바뀌면 현재 화면이 새로 마운트돼 주소에서 상태를 다시 읽는다. */
   const [screenKey, setScreenKey] = useState(0)
   const [headerHost, setHeaderHost] = useState<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const onHistoryChange = () => {
-      setMode(currentMode())
+      // 한 번 실린 화면별 CSS는 내려가지 않는다. 다른 화면의 주소로 이동하면 문서를 새로 불러온다.
+      if (currentMode() !== mode) {
+        window.location.reload()
+        return
+      }
       setScreenKey((key) => key + 1)
     }
     window.addEventListener('popstate', onHistoryChange)
     return () => window.removeEventListener('popstate', onHistoryChange)
-  }, [])
+  }, [mode])
 
   useEffect(() => {
     document.title = TITLES[mode]

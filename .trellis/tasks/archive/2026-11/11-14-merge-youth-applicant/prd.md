@@ -58,4 +58,4 @@ After the merge lands on `main`, rename the GitHub repository and update its des
 - [x] `npm run lint` exits 0 with no warnings, `npm run build` exits 0, `node src/forms/phone.test.ts` exits 0.
 - [x] Engine, backend and scenario suites give the same result on the merged tree as on the officer tip, or better where restored applicant files are involved.
 - [x] Browser check: `/officer?mock=1` shows the officer list; `/apply/identity` shows the applicant identity step; `/` goes to the applicant flow.
-- [ ] `main` contains the merge; repository renamed; description updated.
+- [x] `main` contains the merge (pull request #2, merge commit `0d88b35`); repository renamed to `zohijin-k/26-2-youth`; description updated.

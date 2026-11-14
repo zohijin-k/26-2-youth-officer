@@ -12,8 +12,8 @@ Branch `feat/merge-youth-applicant` from `main` (`ac8a345`).
    - browser: `/officer?mock=1`, `/officer?mock=0`, `/apply/identity`, `/`
    Compare with the officer tip run in the same environment.
 4. [x] Review of the hand-merged files; fix findings in follow-up commits (no amend).
-5. [ ] Trellis record commit, push the branch, open the pull request, merge into `main`.
-6. [ ] Rename the GitHub repository, update its description, point local `origin` at the new URL.
-7. [ ] Archive this task.
+5. [x] Trellis record commit, push the branch, open the pull request, merge into `main`.
+6. [x] Rename the GitHub repository, update its description, point local `origin` at the new URL.
+7. [x] Archive this task.
 
 Never stage the untracked nested clone `26-2-youth-officer/` at the repository root; stage paths explicitly.

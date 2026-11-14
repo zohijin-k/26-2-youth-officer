@@ -17,7 +17,7 @@ OCR은 서류 사진이나 PDF에서 글자를 읽는 기술입니다.
 
 ## 저장소와 브랜치
 
-저장소는 GitHub의 `zohijin-k/26-2-youth-officer`입니다. 청년 취업지원패키지 담당자 화면을 다루며, 기준 브랜치는 `main`입니다. 기존 clone은 작업 중인 변경을 확인한 뒤 `git checkout main && git pull`로 갱신합니다. git을 쓰지 않으면 저장소 첫 화면에서 브랜치가 `main`인지 확인하고 Code → Download ZIP으로 받습니다.
+저장소는 GitHub의 `zohijin-k/26-2-youth`입니다. 청년 취업지원패키지 신청자 화면과 담당자 화면을 함께 다루며, 기준 브랜치는 `main`입니다. 신청자 화면은 별도 저장소였던 `26-2-youth-applicant`의 내용을 이 저장소에 합친 것입니다. 이 저장소(이전 이름 `26-2-youth-officer`)의 기존 clone은 작업 중인 변경을 확인한 뒤 `git checkout main && git pull`로 갱신합니다. `26-2-youth-applicant`의 clone은 갱신되지 않으므로 이 저장소를 새로 clone합니다. git을 쓰지 않으면 저장소 첫 화면에서 브랜치가 `main`인지 확인하고 Code → Download ZIP으로 받습니다.
 
 이전 통합 저장소의 기능 브랜치 목록은 이 저장소의 브랜치 현황이 아닙니다.
 
@@ -34,7 +34,7 @@ OCR은 서류 사진이나 PDF에서 글자를 읽는 기술입니다.
 
 | 경로 | 내용 |
 |---|---|
-| [`demo/`](../demo/README.md) | 취업지원패키지 담당자 데모, FastAPI(Python 웹 API 도구) 백엔드, React(화면 구성 라이브러리) 화면, 시나리오 확인 스크립트 |
+| [`demo/`](../demo/README.md) | 취업지원패키지 신청자·담당자 데모, FastAPI(Python 웹 API 도구) 백엔드, React(화면 구성 라이브러리) 화면, 시나리오 확인 스크립트 |
 | [`engine/`](../engine/README.md) | 기존 규칙 판정 엔진. 데모가 서류·자격 판정 파이프라인으로 사용합니다. |
 | [`engine_v2/`](../engine_v2/README.md) | OCR 파이프라인·서류 추출기·분류기·평가 도구. `own` 모델 파일은 `models/`에 내려받으며 커밋하지 않습니다. |
 | [`engine_v2/pipeline/ocr/`](../engine_v2/pipeline/ocr/) | OCR 공통 인터페이스와 엔진별 모듈 (`own.py` 포함) |
@@ -51,7 +51,7 @@ OCR은 서류 사진이나 PDF에서 글자를 읽는 기술입니다.
 
 ## 개발 환경과 실행
 
-이번에 검증한 환경은 **WSL2 Ubuntu 24.04.5 LTS · Python 3.12.3 · Node 22.23.4 · npm 10.9.9**입니다. Python 3.12 이상, Node 22.13 이상을 사용합니다. Windows 네이티브와 macOS는 이번에 검증하지 않았습니다. 데모 로컬 OCR은 own이 기본이며 macOS에서도 모델 설치가 필요합니다.
+엔진·백엔드·시나리오 기준선은 두 화면을 합치기 전 기준 커밋 `e449c55`에서 **WSL2 Ubuntu 24.04.5 LTS · Python 3.12.3 · Node 22.23.4 · npm 10.9.9**로 측정했습니다. 두 화면을 합친 뒤에는 macOS(Python 3.14.6 · Node 26.13.1 · npm 11.20.0)에서 같은 수치와 프런트엔드 lint·build·단위 시험을 확인했고, WSL2에서는 다시 실행하지 않았습니다. Python 3.12 이상, Node 22.13 이상을 사용합니다. Windows 네이티브와 macOS의 설치 절차는 이번에 검증하지 않았습니다. 데모 로컬 OCR은 own이 기본이며 macOS에서도 모델 설치가 필요합니다.
 
 저장소 루트에서 설치합니다.
 
@@ -78,9 +78,19 @@ cd demo/frontend
 npm run dev
 ```
 
-<http://localhost:5173>에서 바로 취업지원패키지 담당자 목록을 엽니다. 기존 합성 목업은 `?mock=1`, 실제 API 목록만 확인하려면 `?mock=0`을 사용합니다. 목업은 DB를 채우지 않으며 처리 결과는 새로고침하면 초기화됩니다. FastAPI 문서는 <http://localhost:8000/docs>입니다.
+프런트 개발 서버 주소는 <http://localhost:5173>이며, 프런트엔드 하나가 주소에 따라 두 화면 중 하나만 엽니다.
 
-시나리오 시험용 가상 PDF는 `demo/fixtures/samples/`가 없으면 시험에서 자동 생성합니다. 담당자 합성 목업 시연에는 이 PDF 생성이나 DB 초기화가 필요하지 않습니다. 개발 중 DB·업로드 저장소 초기화가 필요하면 서버를 멈추고 `python -m demo.backend.reset --dry-run`으로 삭제 대상을 먼저 확인합니다.
+| 주소 | 열리는 화면 |
+|---|---|
+| <http://localhost:5173/apply/identity> | 신청자 화면. `/apply`로 시작하는 주소는 신청자 화면이며 본인인증 단계에서 시작합니다. |
+| <http://localhost:5173/officer> | 담당자 화면. `/officer`로 시작하는 주소는 담당자 화면이며 신청 목록에서 시작합니다. |
+| <http://localhost:5173/> | 그 밖의 주소는 `?mode=officer`가 있으면 담당자 화면, 없으면 신청자 화면입니다. 화면이 열리면 주소는 각각 `/officer`, `/apply/identity`로 바뀝니다. 담당자 화면으로 들어가는 주소는 `/officer...`와 `?mode=officer`뿐이며, `?o_open=...`처럼 `mode` 없이 저장해 둔 예전 담당자 주소는 신청자 화면으로 열립니다. |
+
+화면을 고르는 규칙은 `demo/frontend/src/navigation-url.ts`의 `currentMode()`에 있고, `demo/frontend/src/App.tsx`가 그 결과에 따라 한 화면만 불러옵니다. 화면을 오가는 탭은 없습니다.
+
+담당자 화면의 기존 합성 목업은 <http://localhost:5173/officer?mock=1>, 실제 API 목록만 확인하려면 <http://localhost:5173/officer?mock=0>을 사용합니다. 목업은 담당자 화면에만 있고 DB를 채우지 않으며 처리 결과는 새로고침하면 초기화됩니다. 신청자 화면은 열릴 때 같은 탭에 저장된 신청을 복원하고, 없으면 백엔드에 취업지원패키지 초안 신청을 새로 만들기 때문에 백엔드를 함께 실행합니다. FastAPI 문서는 <http://localhost:8000/docs>입니다.
+
+시나리오 시험용 가상 PDF는 `demo/fixtures/samples/`가 없으면 시험에서 자동 생성합니다. 담당자 합성 목업 시연에는 이 PDF 생성이나 DB 초기화가 필요하지 않습니다. 신청자 화면에서 만든 신청 건은 `demo/demo.db`와 `demo/storage/`에 남습니다. 개발 중 DB·업로드 저장소 초기화가 필요하면 서버를 멈추고 `python -m demo.backend.reset --dry-run`으로 삭제 대상을 먼저 확인합니다. 서류 업로드 단계 시험용 `seed_application` 도구의 사용법은 [데모 안내](../demo/README.md#3-기동)에 있습니다.
 
 ## OCR 판독 설정
 
@@ -115,15 +125,18 @@ python -m pytest engine_v2/tests -q -ra
 python -m pytest demo/backend/tests -q -ra
 ```
 
-`e449c55`의 WSL2 기준선은 엔진 1,264개 통과·합성 글꼴 누락 3개 건너뜀, 백엔드 1,227개 통과입니다. 시나리오 18개는 확인 1,885개 통과·실패 0이며 P14의 원본 서식 8개 검증도 통과했습니다. 프론트엔드는 lint 경고 1개·build 통과입니다. Apple Vision 관련 시험 건너뜀은 없고 `ocrmac` 설치는 Darwin 조건에 따라 제외됩니다. 위 반복문은 한 시나리오가 실패해도 나머지를 계속 실행합니다.
+`e449c55`의 WSL2 기준선은 엔진 1,264개 통과·합성 글꼴 누락 3개 건너뜀, 백엔드 1,227개 통과입니다. 건너뛴 3개는 `engine_v2/tests/test_own_format_integration.py`의 시험으로, own 모델을 설치한 상태에서 합성 글꼴을 `python -m engine_v2.tools.fetch_synth_fonts`로 `engine_v2/data/synth_fonts/`에 받아 두면 함께 실행되어 엔진 기준선은 1,267개 통과가 됩니다. 시나리오 18개는 확인 1,885개 통과·실패 0이며 P14의 원본 서식 8개 검증도 통과했습니다. Apple Vision 관련 시험 건너뜀은 없고 `ocrmac` 설치는 Darwin 조건에 따라 제외됩니다. 위 반복문은 한 시나리오가 실패해도 나머지를 계속 실행합니다.
 
-프론트엔드 타입 검사·린트·빌드는 다음과 같습니다.
+프론트엔드 타입 검사·린트·빌드와 단위 시험은 다음과 같습니다.
 
 ```bash
 cd demo/frontend
 npm run lint
 npm run build
+node src/forms/phone.test.ts
 ```
+
+`npm run lint`는 종료 코드 0에 경고 없이 끝납니다. `npm run build`는 종료 코드 0이며, 신청자 화면과 담당자 화면을 따로 나눠 싣기 때문에 청크 크기 안내는 나오지 않습니다. `node src/forms/phone.test.ts`는 신청자 서식의 전화번호 형식 단위 시험으로, Node가 TypeScript 파일을 직접 실행하므로 Node 22.18 이상에서 실행합니다. 통과하면 오류 없이 종료 코드 0으로 끝납니다.
 
 하위 폴더별 기능과 추가 실행 방법은 [데모](../demo/README.md), [기존 엔진](../engine/README.md), [엔진 v2](../engine_v2/README.md), 대시보드 코드와 [대시보드 옛 안내](archive/dashboard-README.md)를 확인합니다.
 
@@ -133,7 +146,7 @@ npm run build
 
 - 이 저장소의 시연·시험에는 합성 데이터만 사용합니다. 모델, 생성 문서, 업로드 원본과 DB는 커밋하지 않습니다.
 - 판정은 공고문에 근거한 규칙으로 합니다. OCR·모델은 문서를 읽는 데 씁니다.
-- 신청자 화면은 없지만 신청 API와 판정 저장·DB 모델은 보존합니다. 신청자용 API의 배점·내부 판단 정보 비노출 시험도 유지합니다.
+- 두배적금 화면은 없지만 두 사업의 신청 API와 판정 저장·DB 모델은 보존합니다. 신청자용 API의 배점·내부 판단 정보 비노출 시험도 유지합니다.
 - 파일 이름이 아니라 서류 내용으로 종류와 판정 근거를 판단합니다.
 - 담당자는 신청자가 올린 원본 서류를 내려받지 않고 화면으로만 확인합니다. 신청자는 본인이 작성한 서식만 내려받을 수 있으며 P4 시나리오가 이 경계를 확인합니다.
 - 값을 출력하는 점검 도구는 이름·주소·번호를 가립니다.

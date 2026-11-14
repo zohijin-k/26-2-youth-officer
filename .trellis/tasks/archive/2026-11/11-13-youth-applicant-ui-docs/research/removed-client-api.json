@@ -1,0 +1,154 @@
+[
+  {
+    "kind": "interface",
+    "name": "DocRow"
+  },
+  {
+    "kind": "interface",
+    "name": "ReviewStep"
+  },
+  {
+    "kind": "interface",
+    "name": "PackageDetail"
+  },
+  {
+    "kind": "interface",
+    "name": "SavingsPlan"
+  },
+  {
+    "kind": "interface",
+    "name": "ApplyStep"
+  },
+  {
+    "kind": "interface",
+    "name": "ProgramDetail"
+  },
+  {
+    "kind": "function",
+    "name": "uploadSignatureScan"
+  },
+  {
+    "kind": "function",
+    "name": "deleteSignatureScan"
+  },
+  {
+    "kind": "type",
+    "name": "IssueRule"
+  },
+  {
+    "kind": "type",
+    "name": "CriteriaSubsidyDoc"
+  },
+  {
+    "kind": "type",
+    "name": "CriteriaSubsidyItem"
+  },
+  {
+    "kind": "interface",
+    "name": "CriteriaData"
+  },
+  {
+    "kind": "interface",
+    "name": "CriteriaVersion"
+  },
+  {
+    "kind": "interface",
+    "name": "CriteriaHistory"
+  },
+  {
+    "kind": "const",
+    "name": "fetchProgramCriteria"
+  },
+  {
+    "kind": "const",
+    "name": "fetchOfficerCriteria"
+  },
+  {
+    "kind": "const",
+    "name": "saveOfficerCriteria"
+  },
+  {
+    "kind": "const",
+    "name": "putDocContext"
+  },
+  {
+    "kind": "interface",
+    "name": "BBox"
+  },
+  {
+    "kind": "type",
+    "name": "DecisionKey"
+  },
+  {
+    "kind": "interface",
+    "name": "OfficerAction"
+  },
+  {
+    "kind": "interface",
+    "name": "OfficerRole"
+  },
+  {
+    "kind": "interface",
+    "name": "QuotaRow"
+  },
+  {
+    "kind": "interface",
+    "name": "OfficerRowDoc"
+  },
+  {
+    "kind": "interface",
+    "name": "OfficerRow"
+  },
+  {
+    "kind": "interface",
+    "name": "OfficerListQuery"
+  },
+  {
+    "kind": "interface",
+    "name": "OfficerList"
+  },
+  {
+    "kind": "interface",
+    "name": "ScoreItemRow"
+  },
+  {
+    "kind": "interface",
+    "name": "ScoreSheetData"
+  },
+  {
+    "kind": "interface",
+    "name": "OfficerDocument"
+  },
+  {
+    "kind": "interface",
+    "name": "FormExport"
+  },
+  {
+    "kind": "interface",
+    "name": "ReviewDetailData"
+  },
+  {
+    "kind": "const",
+    "name": "isOfficerMockActive"
+  },
+  {
+    "kind": "const",
+    "name": "fetchOfficerRoles"
+  },
+  {
+    "kind": "const",
+    "name": "fetchOfficerList"
+  },
+  {
+    "kind": "const",
+    "name": "fetchReviewDetail"
+  },
+  {
+    "kind": "const",
+    "name": "postDecision"
+  },
+  {
+    "kind": "const",
+    "name": "postBulkDecision"
+  }
+]

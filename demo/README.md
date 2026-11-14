@@ -1,7 +1,9 @@
-# 데모 사이트 — 청년 취업지원패키지 담당자 화면
+# 데모 사이트 — 청년 취업지원패키지 신청자·담당자 화면
 
-청년 취업지원패키지 접수 목록과 제출 원본·판독 결과·판정 근거를 확인하고 심사하는
-담당자 전용 데모다. 신청자 화면과 사업 선택 화면은 없다. 신청·업로드·판정 저장 API와
+청년 취업지원패키지 신청자가 본인인증부터 서식 작성·서명, 지원 항목 선택, 서류 업로드,
+확인·제출까지 진행하는 신청자 화면과, 담당자가 접수 목록과 제출 원본·판독 결과·판정 근거를
+확인하고 심사하는 담당자 화면을 함께 담은 데모다. 두 화면은 프런트엔드 하나에서 주소로 구분해
+열며, 사업 선택 화면과 두배적금 화면은 없다. 신청·업로드·판정 저장 API와
 두 사업의 백엔드 모델·규칙·서식 기능은 보존되어 있다.
 
 - 요구사항: `.trellis/tasks/09-16-demo-site/prd.md`
@@ -29,7 +31,7 @@ demo/
 │   ├── api/ ocr/ rules/    라우터 · 판독 3계층 · 업무 규칙
 │   ├── forms/          원본 PDF 위 입력·서명 렌더링 및 서식 응답
 │   └── tests/          P2\~P20 시나리오 검증 스크립트 (pytest 없이 실행)
-├── frontend/           React + Vite (취업지원패키지 담당자 화면)
+├── frontend/           React + Vite (취업지원패키지 신청자 화면 · 담당자 화면)
 ├── fixtures/
 │   ├── make_samples.py 시연용 더미 서류 생성기
 │   ├── cut_templates.py     원본 공고 PDF에서 서식별 A4 쪽 템플릿 생성
@@ -38,7 +40,7 @@ demo/
 │   ├── templates/      두 사업 신청자 서식 PDF 템플릿 (커밋 대상)
 │   ├── form_coords/    서식별 필드 좌표 맵 JSON
 │   └── expected/       시연 시나리오 10종의 기대 결과 JSON
-├── docs/demo-script.md 시연 대본
+├── docs/demo-script.md 이전 통합 화면 기준 시연 대본 (현재 화면과 다름)
 ├── storage/            업로드 원본 (gitignore)
 └── demo.db             SQLite (gitignore)
 ```
@@ -51,8 +53,11 @@ demo/
 
 ## 2. 준비 (최초 1회)
 
-이번 검증 환경: **WSL2 Ubuntu 24.04.5 LTS · Python 3.12.3 · Node 22.23.4 · npm 10.9.9**.
-Python 3.12 이상, Node 22.13 이상이 필요하다. Windows 네이티브와 macOS는 이번에 검증하지 않았다.
+엔진·백엔드·시나리오 기준선은 두 화면을 합치기 전 기준 커밋 `e449c55`에서
+**WSL2 Ubuntu 24.04.5 LTS · Python 3.12.3 · Node 22.23.4 · npm 10.9.9**로 측정했다. 두 화면을 합친 뒤에는
+macOS(Python 3.14.6 · Node 26.13.1 · npm 11.20.0)에서 같은 수치와 프런트엔드 lint·build·단위 시험을 확인했고,
+WSL2에서는 다시 실행하지 않았다. Python 3.12 이상, Node 22.13 이상이 필요하다. Windows 네이티브와 macOS의
+설치 절차는 이번에 검증하지 않았다.
 
 ```bash
 # 저장소 루트에서
@@ -94,17 +99,66 @@ cd demo/frontend
 npm run dev
 ```
 
-브라우저에서 <http://localhost:5173>을 열면 바로 취업지원패키지 담당자 목록이 나온다.
-Vite가 `/api` 요청을 8000 포트로 프록시하므로 별도 설정은 없다.
-취업지원패키지 신청 상세 URL은 직접 열거나 새로고침해도 복원된다.
+개발 서버 주소는 <http://localhost:5173>이다. 주소에 따라 두 화면 중 하나만 열린다.
 
-기존 `demo.backend.tools.seed_application`은 본인인증된 초안의 2단계만 채우는 도구다.
-신청자 화면이 없는 이 프런트에서는 기존의 같은 탭 `/apply/upload` 안내를 사용할 수 없으며,
-이 도구는 담당자 목록에 접수 건을 생성·제출하는 명령이 아니다. 도구와 API 시험은 보존되어 있다.
+| 주소 | 화면 |
+|---|---|
+| `/apply/...` | 신청자 화면. 시작 주소는 <http://localhost:5173/apply/identity>(본인인증)다. |
+| `/officer...` | 담당자 화면. 시작 주소는 <http://localhost:5173/officer>(신청 목록)다. |
+| 그 밖의 주소(`/` 포함) | `?mode=officer`가 있으면 담당자 화면, 없으면 신청자 화면이다. 화면이 열리면 주소는 각각 `/officer`, `/apply/identity`로 바뀐다. |
+
+화면을 오가는 탭은 없으므로 주소로 이동한다. Vite가 `/api` 요청을 8000 포트로 프록시하므로 별도 설정은 없다.
+담당자 화면의 취업지원패키지 신청 상세 URL은 직접 열거나 새로고침해도 복원된다.
+
+신청자 흐름은 **본인인증 → 서식 작성 → 서류 업로드 → 확인 및 제출**이며, 서식 작성 뒤에 지원 항목을
+고른다. 서식 화면은 공고문 원본 PDF 위에서 온라인 작성·서명하고, 마이페이지는 상단 신청번호 옆 버튼으로
+연다. 신청자 화면은 열릴 때 같은 탭에 저장된 신청을 복원하고, 없으면 취업지원패키지 초안 신청을 새로
+만든다. 그래서 백엔드가 떠 있어야 하며 신청 건은 `demo/demo.db`에 쌓인다. 제출 전 초안은 담당자
+목록에 보이지 않는다.
+
+### 서류 업로드 시험용 2단계 자동 입력
+
+`demo.backend.tools.seed_application`은 본인인증된 초안의 2단계(자가진단·서식·동의·서명·지원 항목)만
+가짜 값으로 채우는 개발용 도구다. 화면에서 사람이 **1단계 본인인증까지** 마친 뒤, 저장소 루트에서 실행한다.
+기본 대상은 본인인증을 마친 초안 중 2단계가 미완료인 가장 최근 신청 한 건이다.
+
+시드한 신청은 2단계를 다시 저장하지 말 것.
+
+```bash
+PYTHONPATH=. python -B -m demo.backend.tools.seed_application
+PYTHONPATH=. python -B -m demo.backend.tools.seed_application --application-id 123
+PYTHONPATH=. python -B -m demo.backend.tools.seed_application --address '전북특별자치도 익산시 가짜시험로 0 (SEED 가상주소)' --frontend-url http://localhost:5173
+```
+
+실행 후 출력대로 **1단계를 한 같은 탭 주소창에** `http://localhost:5173/apply/upload`를
+입력한다. 이 화면은 같은 탭의 `sessionStorage` 신청 ID를 복원한다. 새 탭에서는 저장된 신청 ID가
+없어 새 초안의 본인인증 단계가 열리므로, 도구가 채운 신청이 열리지 않는다. 화면이 이미 열려
+있다면 주소창에서 새로 이동해야 서버에 채운 값을 다시 읽는다.
+
+본인인증 값은 만들거나 바꾸지 않는다. 서식의 중복 성명·생년월일은 인증 값에서
+옮기고, 연락처·이메일·계좌·서명 등은 시험값을 넣는다. 취업지원패키지 신청의 지원 항목은 면접비 1회로
+채운다. 기본 주소는 사업 설정의 대상 시군에 속하는 가상 주소다. 취업지원패키지에는 근로유형 선택이
+없어 출력의 근로유형은 `해당 없음`으로 나온다. 이 도구는 시험용이며 신청을 제출하지 않는다 —
+담당자 목록에 접수 건으로 올리려면 화면의 확인 및 제출 단계까지 마쳐야 한다.
+
+```bash
+# 이 도구가 표시한 신청과 관련 행·파일만 삭제 (나중에 올린 서류와 최초 인증 서약도 포함)
+PYTHONPATH=. python -B -m demo.backend.tools.seed_application --clean
+# 표시된 신청 한 건만 삭제
+PYTHONPATH=. python -B -m demo.backend.tools.seed_application --clean --application-id 123
+```
+
+이미 2단계를 마친 신청·미인증 신청은 변경하지 않는다. 이 저장소의 기존
+`demo/demo.db` 외의 DB는 거부하며, 오류 시 고정 코드만 출력한다. 정리 표시는
+`form1_json._seed_application`에 저장된다.
+
+### 담당자 화면 목업
 
 취업지원패키지 기본 목록에 접수 건이 없으면 담당자 화면은 **목업 데이터**로 채워진다(상단에 노란
-배너가 뜬다). `?mock=1`로 강제로 켜고 `?mock=0`으로 끈다 —
+배너가 뜬다). <http://localhost:5173/officer?mock=1>로 강제로 켜고
+<http://localhost:5173/officer?mock=0>으로 끈다 —
 [보관된 담당자 화면 목업 기록](../docs/archive/officer-mock-data.md).
+목업은 담당자 화면에만 있으며 `mock` 값은 `/officer` 주소에 붙인다. 루트 주소에 붙인 `/?mock=1`은 신청자 화면을 연다.
 목업은 브라우저 메모리에서 동작하며 처리 결과는 새로고침하면 초기화된다. 심사 기준 편집은 실제 백엔드 API를 사용한다.
 
 확인용 엔드포인트:
@@ -122,7 +176,7 @@ API 문서는 <http://localhost:8000/docs> (FastAPI 자동 생성).
 
 ## 4. 시연 초기화
 
-합성 목업 시연에는 초기화가 필요하지 않다. 개발 중 실제 데모 DB·업로드 파일을 삭제해야 할 때만 사용한다.
+합성 목업 시연에는 초기화가 필요하지 않다. 개발 중 실제 데모 DB·업로드 파일(신청자 화면에서 만든 신청 건 포함)을 삭제해야 할 때만 사용한다.
 기존 데이터가 삭제되므로 서버를 멈추고 먼저 삭제 대상만 확인한다.
 
 ```bash
@@ -174,7 +228,7 @@ PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p19_nhis_hi
 PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p20_nhis_continuation_scenarios
 ```
 
-실패한 시나리오 뒤에도 나머지를 끝까지 실행하려면 아래 반복문을 쓴다. 파일 이름 순서상 P11\~P15가 P2\~P9보다 먼저라, 첫 실패에서 멈추면 뒤 시나리오 결과를 확인할 수 없다.
+실패한 시나리오 뒤에도 나머지를 끝까지 실행하려면 아래 반복문을 쓴다. 파일 이름 순서상 P11\~P20이 P2\~P9보다 먼저라, 첫 실패에서 멈추면 뒤 시나리오 결과를 확인할 수 없다.
 
 ```bash
 for f in demo/backend/tests/run_p*_scenarios.py; do echo "== $f"; python -m demo.backend.tests.$(basename "$f" .py) || echo "FAILED $f"; done
@@ -197,15 +251,24 @@ PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p6_scenario
 cd demo/frontend
 npm run lint
 npm run build
+node src/forms/phone.test.ts
 ```
+
+`npm run lint`는 종료 코드 0에 경고 없이 끝난다. `npm run build`는 종료 코드 0이며, 신청자 화면과 담당자 화면을 따로 나눠 싣기 때문에 청크 크기 안내는
+나오지 않는다. `node src/forms/phone.test.ts`는 신청자 서식의 전화번호 형식 단위 시험으로, Node가 TypeScript
+파일을 직접 실행하므로 Node 22.18 이상에서 실행한다. 통과하면 오류 없이 종료 코드 0으로 끝난다.
 
 ---
 
-## 6. 보존된 서식 API·템플릿
+## 6. 신청 서식 온라인 작성·보관
 
-신청자 온라인 작성 화면은 제거되었지만, 두 사업의 서식 생성·서명·PDF 보관 API와 템플릿은 보존되어 있다.
+취업지원패키지 신청서·동의서는 신청자가 서식 작성 단계에서 원본 서식 PDF 위에 온라인으로 작성하고 서명한다.
+회사가 작성하는 면접확인서 양식은 서류 업로드 단계에서 화면으로 확인하고 인쇄할 수 있다.
+서식 작성 화면의 **다운로드** 메뉴에서는 작성한 서식 PDF를 받고, 원본 HWP가 제공되는 경우 HWP도 받는다.
 담당자는 취업지원패키지 신청 상세에서 작성 서식과 업로드 원본을 브라우저 안에서 확인한다.
-기존 신청자용 PDF/HWP 제공과 스캔본 제출 계약은 백엔드 시험 대상이며, 이 프런트에는 작성·다운로드 화면이 없다.
+
+두배적금 화면은 없지만, 두 사업의 서식 생성·서명·PDF 보관 API와 템플릿은 보존되어 있다.
+두배적금 서식과 스캔본 제출 계약은 백엔드 시험 대상이며, 이 프런트에는 그 작성 화면이 없다.
 
 템플릿과 좌표 맵은 **원본 공고 PDF의 서식 쪽**에서 생성한다. 원본이 개정되면 저장소 루트에
 원본 PDF를 준비하고 다음 명령을 실행한다.
@@ -219,8 +282,8 @@ PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.fixtures.build_form_coords
 
 ### 서식 글꼴
 
-서식 PDF 합성은 Noto KR TTF 서브셋을 사용한다. 기존 WOFF2와 SIL OFL `OFL.txt`도
-백엔드 서식·글꼴 회귀 시험에서 확인하므로 함께 보존한다.
+신청자 서식 입력 화면은 Noto KR WOFF2 서브셋을, 서식 PDF 합성은 Noto KR TTF 서브셋을 사용한다.
+각 글꼴 폴더에 SIL OFL `OFL.txt`를 함께 두며, 백엔드 서식·글꼴 회귀 시험이 이 파일들을 확인한다.
 
 - 고딕: `frontend/src/assets/fonts/NotoSansKR/` — [Noto Sans KR 원본·라이선스](https://github.com/google/fonts/tree/main/ofl/notosanskr)
 - 명조: `frontend/src/assets/fonts/NotoSerifKR/` — [Noto Serif KR 원본·라이선스](https://github.com/google/fonts/tree/main/ofl/notoserifkr)
@@ -235,7 +298,7 @@ PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.fixtures.build_form_coords
 - 데모 로컬 OCR은 macOS를 포함한 모든 환경에서 own이 기본이다. 기본 선택에서 own 모델 파일이 없을 때만 easyocr로 대체한다. 명시한 own의 모델 누락·해시 오류·추론 오류에는 다른 OCR 엔진으로 대체하지 않는다. own 모델 설치는 macOS에서도 필요하다.
 - `ENGINE_V2_OCR`의 비어 있지 않은 값은 데모 엔진 선택에 우선한다. `off`는 데모 전용이고, `engine_v2.engine.run`과 CLI 선택값은 `own` / `applevision` / `easyocr` / `paddle`이다.
 - **점수는 신청자에게 절대 보이지 않는다**(공고문: "평가결과는 공개하지 않음").
-  신청자 화면은 제거했지만, 보존된 신청 상태 API 응답에 점수 관련 필드가 섞이는지는 계속 검증한다.
+  신청자 화면(마이페이지)이 쓰는 신청 상태 API 응답에 점수 관련 필드가 섞이는지는 계속 검증한다.
 - **미확정 가정값**에는 `(데모 추정치)` 라벨이 붙어 있다. 중위소득 100\~130% 환산
   기준선, 판독 신뢰도·화질 컷라인, 취업패키지 서식 구성, 선착순 기준 시각이
   여기 해당한다. 화면과 코드 양쪽에 같은 문구로 노출된다.

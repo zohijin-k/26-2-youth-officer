@@ -1,0 +1,630 @@
+{
+  "environment": "WSL2 (Ubuntu 24.04.5 LTS)",
+  "branch": "feat/youth-applicant-only",
+  "base": "e449c550bdc9cc43b6793ca6636658c1f9f75cdd",
+  "committed": false,
+  "staged": false,
+  "font_provenance": {
+    "path": "/tmp/youth-applicant-baseline-OQ2u7q/fonts/NanumMyeongjo-Regular.ttf",
+    "command": ".venv/bin/python -m engine_v2.tools.fetch_synth_fonts --output /tmp/youth-applicant-baseline-OQ2u7q/fonts",
+    "source": "Pinned Google Fonts revision from repository documented fetch tool; not a system font or manual copy",
+    "sha256": "7ed9e8653a8ed04285d51dc343ffea6eb3d9c73afc27383ea8929ee4ffd03205",
+    "git_check_ignore_exit": 128,
+    "git_check_ignore_output": "fatal: /tmp/youth-applicant-baseline-OQ2u7q/fonts/NanumMyeongjo-Regular.ttf: '/tmp/youth-applicant-baseline-OQ2u7q/fonts/NanumMyeongjo-Regular.ttf' is outside repository at '/home/ijin/26-2-youth-applicant'",
+    "tracked_matching_fonts": ""
+  },
+  "diff_stat": " README.md                                          |  103 +-\n demo/frontend/index.html                           |    2 +-\n demo/frontend/src/App.tsx                          |   93 +-\n demo/frontend/src/api.ts                           |  532 +---\n demo/frontend/src/app-shell.css                    |   51 +-\n demo/frontend/src/components/CriteriaEditor.tsx    |  275 --\n demo/frontend/src/components/SignaturePad.tsx      |    2 +-\n demo/frontend/src/components/StatusBadge.tsx       |   13 +-\n demo/frontend/src/components/skeleton.css          |   33 +-\n demo/frontend/src/forms/FormSheet.tsx              |  287 +--\n demo/frontend/src/forms/PdfFormsWorkspace.tsx      |  480 +---\n demo/frontend/src/forms/consent-model.ts           |   10 +-\n demo/frontend/src/forms/form-field-bindings.ts     |  115 -\n demo/frontend/src/forms/form-sheet.css             |  454 +---\n demo/frontend/src/forms/form1-model.ts             |  111 +-\n demo/frontend/src/forms/form2-model.ts             |  106 +-\n demo/frontend/src/forms/form5-model.ts             |   28 -\n demo/frontend/src/forms/pdf-forms-workspace.css    |  115 -\n demo/frontend/src/lib/period.ts                    |   88 -\n demo/frontend/src/navigation-url.ts                |   14 +-\n demo/frontend/src/pages/applicant/ApplyFlow.tsx    |  275 +-\n .../src/pages/applicant/DocumentUpload.tsx         |  111 +-\n demo/frontend/src/pages/applicant/FinalCheck.tsx   |   14 +-\n .../frontend/src/pages/applicant/ProgramPicker.tsx |  566 -----\n demo/frontend/src/pages/applicant/apply-flow.css   |   39 +-\n .../src/pages/applicant/program-picker.css         |  439 ----\n .../frontend/src/pages/officer/ApplicationList.tsx |  451 ----\n demo/frontend/src/pages/officer/DocumentViewer.tsx |  260 --\n demo/frontend/src/pages/officer/OfficerConsole.tsx |  244 --\n demo/frontend/src/pages/officer/ReviewDetail.tsx   |  527 ----\n demo/frontend/src/pages/officer/ScoreSheet6.tsx    |  208 --\n demo/frontend/src/pages/officer/format.ts          |   14 -\n demo/frontend/src/pages/officer/mock-data.ts       | 2670 --------------------\n demo/frontend/src/pages/officer/officer.css        |  980 -------\n 34 files changed, 218 insertions(+), 9492 deletions(-)\n",
+  "file_counts": {
+    "deleted": 13,
+    "modified": 21,
+    "added": 0
+  },
+  "commits": [
+    {
+      "order": 1,
+      "title": "feat: start youth package applications directly",
+      "deleted": [],
+      "modified": [
+        "demo/frontend/src/pages/applicant/ApplyFlow.tsx"
+      ],
+      "added": [],
+      "scope": "Entry/restore/retry/StrictMode and stale response hunks only; retain deletion hunks for commit 2"
+    },
+    {
+      "order": 2,
+      "title": "refactor: remove savings and officer frontend",
+      "deleted": [
+        "demo/frontend/src/components/CriteriaEditor.tsx",
+        "demo/frontend/src/forms/form5-model.ts",
+        "demo/frontend/src/lib/period.ts",
+        "demo/frontend/src/pages/applicant/ProgramPicker.tsx",
+        "demo/frontend/src/pages/applicant/program-picker.css",
+        "demo/frontend/src/pages/officer/ApplicationList.tsx",
+        "demo/frontend/src/pages/officer/DocumentViewer.tsx",
+        "demo/frontend/src/pages/officer/OfficerConsole.tsx",
+        "demo/frontend/src/pages/officer/ReviewDetail.tsx",
+        "demo/frontend/src/pages/officer/ScoreSheet6.tsx",
+        "demo/frontend/src/pages/officer/format.ts",
+        "demo/frontend/src/pages/officer/mock-data.ts",
+        "demo/frontend/src/pages/officer/officer.css"
+      ],
+      "modified": [
+        "demo/frontend/index.html",
+        "demo/frontend/src/App.tsx",
+        "demo/frontend/src/api.ts",
+        "demo/frontend/src/app-shell.css",
+        "demo/frontend/src/components/SignaturePad.tsx",
+        "demo/frontend/src/components/StatusBadge.tsx",
+        "demo/frontend/src/components/skeleton.css",
+        "demo/frontend/src/forms/FormSheet.tsx",
+        "demo/frontend/src/forms/PdfFormsWorkspace.tsx",
+        "demo/frontend/src/forms/consent-model.ts",
+        "demo/frontend/src/forms/form-field-bindings.ts",
+        "demo/frontend/src/forms/form-sheet.css",
+        "demo/frontend/src/forms/form1-model.ts",
+        "demo/frontend/src/forms/form2-model.ts",
+        "demo/frontend/src/forms/pdf-forms-workspace.css",
+        "demo/frontend/src/navigation-url.ts",
+        "demo/frontend/src/pages/applicant/ApplyFlow.tsx",
+        "demo/frontend/src/pages/applicant/DocumentUpload.tsx",
+        "demo/frontend/src/pages/applicant/FinalCheck.tsx",
+        "demo/frontend/src/pages/applicant/apply-flow.css"
+      ],
+      "added": [],
+      "scope": "Includes remaining ApplyFlow removal hunks and all required imports/styles/types wiring"
+    },
+    {
+      "order": 3,
+      "title": "docs: describe the youth applicant repository",
+      "deleted": [],
+      "modified": [
+        "README.md"
+      ],
+      "added": [],
+      "scope": "Root README only; no other documentation edits"
+    }
+  ],
+  "removed_frontend_api_exports": [
+    {
+      "kind": "interface",
+      "name": "DocRow"
+    },
+    {
+      "kind": "interface",
+      "name": "ReviewStep"
+    },
+    {
+      "kind": "interface",
+      "name": "PackageDetail"
+    },
+    {
+      "kind": "interface",
+      "name": "SavingsPlan"
+    },
+    {
+      "kind": "interface",
+      "name": "ApplyStep"
+    },
+    {
+      "kind": "interface",
+      "name": "ProgramDetail"
+    },
+    {
+      "kind": "function",
+      "name": "uploadSignatureScan"
+    },
+    {
+      "kind": "function",
+      "name": "deleteSignatureScan"
+    },
+    {
+      "kind": "type",
+      "name": "IssueRule"
+    },
+    {
+      "kind": "type",
+      "name": "CriteriaSubsidyDoc"
+    },
+    {
+      "kind": "type",
+      "name": "CriteriaSubsidyItem"
+    },
+    {
+      "kind": "interface",
+      "name": "CriteriaData"
+    },
+    {
+      "kind": "interface",
+      "name": "CriteriaVersion"
+    },
+    {
+      "kind": "interface",
+      "name": "CriteriaHistory"
+    },
+    {
+      "kind": "const",
+      "name": "fetchProgramCriteria"
+    },
+    {
+      "kind": "const",
+      "name": "fetchOfficerCriteria"
+    },
+    {
+      "kind": "const",
+      "name": "saveOfficerCriteria"
+    },
+    {
+      "kind": "const",
+      "name": "putDocContext"
+    },
+    {
+      "kind": "interface",
+      "name": "BBox"
+    },
+    {
+      "kind": "type",
+      "name": "DecisionKey"
+    },
+    {
+      "kind": "interface",
+      "name": "OfficerAction"
+    },
+    {
+      "kind": "interface",
+      "name": "OfficerRole"
+    },
+    {
+      "kind": "interface",
+      "name": "QuotaRow"
+    },
+    {
+      "kind": "interface",
+      "name": "OfficerRowDoc"
+    },
+    {
+      "kind": "interface",
+      "name": "OfficerRow"
+    },
+    {
+      "kind": "interface",
+      "name": "OfficerListQuery"
+    },
+    {
+      "kind": "interface",
+      "name": "OfficerList"
+    },
+    {
+      "kind": "interface",
+      "name": "ScoreItemRow"
+    },
+    {
+      "kind": "interface",
+      "name": "ScoreSheetData"
+    },
+    {
+      "kind": "interface",
+      "name": "OfficerDocument"
+    },
+    {
+      "kind": "interface",
+      "name": "FormExport"
+    },
+    {
+      "kind": "interface",
+      "name": "ReviewDetailData"
+    },
+    {
+      "kind": "const",
+      "name": "isOfficerMockActive"
+    },
+    {
+      "kind": "const",
+      "name": "fetchOfficerRoles"
+    },
+    {
+      "kind": "const",
+      "name": "fetchOfficerList"
+    },
+    {
+      "kind": "const",
+      "name": "fetchReviewDetail"
+    },
+    {
+      "kind": "const",
+      "name": "postDecision"
+    },
+    {
+      "kind": "const",
+      "name": "postBulkDecision"
+    }
+  ],
+  "protected_backend_engine_test_dependency_changes": [],
+  "existing_test_expectation_changes": [],
+  "existing_test_deletions_from_screen_removal": [],
+  "existing_test_deletions_other": [],
+  "comparison": {
+    "engine": {
+      "baseline_passed": 1267,
+      "final_passed": 1267,
+      "failed": 0,
+      "skipped": 0,
+      "warnings": 2
+    },
+    "backend": {
+      "baseline_passed": 1227,
+      "final_passed": 1227,
+      "failed": 0,
+      "skipped": 0,
+      "warnings": 4
+    },
+    "scenarios": {
+      "baseline_passed": 1885,
+      "final_passed": 1885,
+      "failed": 0,
+      "skipped": 0,
+      "modules": 18,
+      "aggregate_p14_successes": 1,
+      "p14_forms": 8
+    },
+    "frontend": {
+      "baseline_lint_warnings": 1,
+      "final_lint_warnings": 1,
+      "lint_exit": 0,
+      "build_exit": 0
+    }
+  },
+  "scenario_rows": [
+    {
+      "label": "run_p2_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p2_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 1.69,
+      "passed": 53,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p3_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p3_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 1.97,
+      "passed": 186,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p4_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p4_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 3.57,
+      "passed": 189,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p5_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p5_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 2.22,
+      "passed": 152,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p6_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p6_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 5.02,
+      "passed": 261,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p7_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p7_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 10.84,
+      "passed": 253,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p8_localocr_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p8_localocr_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 4.88,
+      "passed": 89,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p9_identity_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p9_identity_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 7.53,
+      "passed": 98,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p11_criteria_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p11_criteria_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 1.57,
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p12_subsidy_criteria_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p12_subsidy_criteria_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 2.57,
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p13_household_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p13_household_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 1.62,
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p14_pdf_forms_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p14_pdf_forms_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 4.78,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "aggregate module validation",
+      "forms": 8
+    },
+    {
+      "label": "run_p15_jbai_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p15_jbai_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 24.8,
+      "passed": 129,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p16_job_docs_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p16_job_docs_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 6.19,
+      "passed": 96,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p17_own_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p17_own_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 5.17,
+      "passed": 75,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p18_applicant_precheck_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p18_applicant_precheck_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 12.06,
+      "passed": 180,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p19_nhis_history_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p19_nhis_history_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 2.02,
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    },
+    {
+      "label": "run_p20_nhis_continuation_scenarios",
+      "command": [
+        "/home/ijin/26-2-youth-applicant/.venv/bin/python",
+        "-m",
+        "demo.backend.tests.run_p20_nhis_continuation_scenarios"
+      ],
+      "exit": 0,
+      "seconds": 1.77,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "unit": "scenario checks"
+    }
+  ],
+  "browser_checks": {
+    "results": [
+      {
+        "name": "fresh root opens youth identity; one draft under React StrictMode",
+        "status": "passed",
+        "ms": 616
+      },
+      {
+        "name": "identity reload keeps the same draft",
+        "status": "passed",
+        "ms": 207
+      },
+      {
+        "name": "synthetic identity input, DateTriple, phone and drawn signature advance to forms",
+        "status": "passed",
+        "ms": 721
+      },
+      {
+        "name": "original youth PDF modal, overlay and save/close remain usable",
+        "status": "passed",
+        "ms": 1257
+      },
+      {
+        "name": "youth application PDF edits and signature persist in the unchanged API",
+        "status": "passed",
+        "ms": 69
+      },
+      {
+        "name": "youth consent PDF choices and signature save and restore",
+        "status": "passed",
+        "ms": 1548
+      },
+      {
+        "name": "youth PDF written preview remains available",
+        "status": "passed",
+        "ms": 652
+      },
+      {
+        "name": "in-progress forms URL restores values and the same application on reload",
+        "status": "passed",
+        "ms": 193
+      },
+      {
+        "name": "my-page URL and return stage survive reload",
+        "status": "passed",
+        "ms": 375
+      },
+      {
+        "name": "browser back and forward restore youth stages without creating drafts",
+        "status": "passed",
+        "ms": 370
+      },
+      {
+        "name": "valid same-tab youth subsidy/upload/final URLs restore on direct access",
+        "status": "passed",
+        "ms": 605
+      },
+      {
+        "name": "draft completion URL falls back to final confirmation",
+        "status": "passed",
+        "ms": 219
+      },
+      {
+        "name": "removed and unknown routes replace location with youth identity",
+        "status": "passed",
+        "ms": 1116
+      },
+      {
+        "name": "savings session is rejected without changing its backend record",
+        "status": "passed",
+        "ms": 300
+      },
+      {
+        "name": "new tab without application ownership normalizes a later-stage URL",
+        "status": "passed",
+        "ms": 582
+      },
+      {
+        "name": "configuration fetch failure has a retry that resumes identity",
+        "status": "passed",
+        "ms": 636
+      },
+      {
+        "name": "late 404 from an abandoned restore cannot clear a newly initialized draft",
+        "status": "passed",
+        "ms": 1185
+      },
+      {
+        "name": "no uncaught frontend error or officer API request",
+        "status": "passed",
+        "ms": 1
+      }
+    ],
+    "pageErrors": [],
+    "officerCalls": []
+  },
+  "other_documentation_changes": [],
+  "preexisting_untracked_trellis_records": "Earlier stage-0 planning/evidence/workspace records remain untracked and are excluded from the three proposed product commits; no archive/session auto-commit.",
+  "prohibited_path_attempts_final": 0
+}

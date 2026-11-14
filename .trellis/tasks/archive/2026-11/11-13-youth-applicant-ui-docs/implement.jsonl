@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend ownership and quality entry point"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Applicant state and private same-tab navigation contracts"}
+{"file": ".trellis/spec/frontend/pdf-form-workspace.md", "reason": "Retain shared youth PDF rendering, saving and signature contracts; remove only savings UI ownership"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Retained backend API and data boundaries"}
+{"file": ".trellis/spec/backend/document-form-contracts.md", "reason": "Preserve synthetic-document, identity and original-form contracts"}
+{"file": ".trellis/tasks/11-13-youth-applicant-scope/research/baseline-boundaries.md", "reason": "Platform facts, baseline counting and prohibited-path mitigation"}
+{"file": ".trellis/tasks/11-13-youth-applicant-scope/research/frontend-boundaries.md", "reason": "Removal/preserve inventory, restoration and retained endpoint consumers"}
+{"file": ".trellis/tasks/11-13-youth-applicant-ui-docs/research/ui-inventory-and-commits.md", "reason": "Stage 1 screen/route/component removal and preserve inventory, direct URL behavior, approval boundary and separate deletion/other-change commit groups"}
+{"file": ".trellis/tasks/11-13-youth-applicant-baseline/research/baseline.md", "reason": "Completed approved WSL2 baseline and four-track comparison, scenario counting and execution restrictions"}
